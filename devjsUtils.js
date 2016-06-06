@@ -75,6 +75,23 @@ var get_paths = function(s) {
 // console.log("",s1," is ",get_paths(s1)); 
 // returns  /hey/now/you/s  is  [ 'hey', 'hey/now', 'hey/now/you', 'hey/now/you/s' ]
 
+
+/**
+ * @class  deviceJSUtils
+ * @constructor
+ * @param  {Object} _devjs A deviceJS instance. typically `dev$`
+ * @param  {Object} [opts]  An options object
+ * @example
+ * ```
+ * var utils = require("devjs-utils").instance(dev$);
+ * console.log("Getting heiarchy");
+ * 
+ * var ans = utils.getHierarchy().then(function(ans){
+ *    var s= JSON.stringify(ans);
+ *    console.log(s);
+ * });
+ * ``` 
+ */
 var devJSUtils = function(_devjs,opts) {
     var cache = null;
 
@@ -135,11 +152,19 @@ var devJSUtils = function(_devjs,opts) {
      * for up to the default TTL or `custom_ttl`. After this, the callback will be purged. If there are no callback assigned for
      * an event, or they all timeout, then the listener is stopped. A single unique callback will never be in the list more than
      * once, and if called again on the same `callback` / `uniq` combination, the TTL value the purge time is just reset.
+     *
+     * This function may be called more than once with the same unique identifier with no harm done. This allows a caller
+     * to just always assign a callback, and if the code stops running, eventually the callback is cleared out.
+     *
+     * This function is more efficient than setting up your own listeners per device, b/c it listens to all devices, and 
+     * then calls the needed callbacks based on the event.
+     *
+     * @method listenToDevice
      * @param {String} id The device ID.
      * @param {String} event_name The event name of interest. For example `"unreachable"`
      * @param {String} uniq A unique string of some sort.
      * @param {Function} callback The callback to be called.
-     * @param {Number} [custom_ttl] A number in milliseconds to timeout the callback. If not state a default is used.
+     * @param {Number} [custom_ttl] A number in milliseconds to timeout the callback. If not stated a default is used.
      */
     this.listenToDevice = function(id,event_name,uniq,callback,custom_ttl) {
         if(arguments.length < 4)
@@ -176,7 +201,7 @@ var devJSUtils = function(_devjs,opts) {
             };
 
             table.devjs_selection = devJS.select('id=*'); // this seems in efficient, but right now its better.
-                                                            // the devicejs enginer does not deal well with many subscribers at the moment
+                                // the devicejs engine does not deal well with many subscribers at the moment
             //log_dbg('selection', table.devjs_selection);
             //if(emitter_event_cb_count === null) {
             emitter_event_cb_count = table.devjs_selection._peer.listenerCount('event');
@@ -252,6 +277,8 @@ var devJSUtils = function(_devjs,opts) {
      * out of the task of dealing with this.
      *
      * This is not a cached call. It will overwrite all cached data. Always fulfills
+     *
+     * @method  preloadDeviceStatus
      */
     this.preloadDeviceStatus = function() {
         var self = this;
@@ -304,16 +331,31 @@ var devJSUtils = function(_devjs,opts) {
     };
 
 
+    /**
+     * Invalidates devjs-utils internal graph, so that the next time a call is used
+     * which needs the graph, it will be pulled again from the deviceJS runtime.
+     *
+     * @method invalidateGraph
+     */
     this.invalidateGraph = function() {
         var ky = "getResourceGroup('')";
         cache.del(ky);
     };
 
+    /**
+     * Invalidates the devjs-utils internal cache for resources. 
+     *
+     * @method invalidateResources
+     */
     this.invalidateResources = function() {
         var ky = 'select("id=*").listResources()';
         cache.del(ky);
     };
 
+    /**
+     * A cached call to `dev$.getResourceGroup('')`
+     * @return {Promise} which fulfills with the resource tree. 
+     */
     this.getResourceTree = function() {
         return new Promise(function(resolve,reject) {
             var ky = "getResourceGroup('')";
@@ -504,18 +546,22 @@ var devJSUtils = function(_devjs,opts) {
     /**
      * given an array of device IDs, this will show only device IDs which have an interface for their
      * type which match a given regex
+     * @method  filterDeviceListByInterfaceRegex
      * @param  {Array} deviceids List of device IDs
      * @param  {RegExp} interfacefilter A RegExp for filtering
      * @return {Promse} A Promise which fulfills with an array which is a subset of the device ID array 
      * that have a matching interface for the given filter
-     * Example:
+     * @example
+     * ```
      *    dev$UtilsDEBUG.filterDeviceListByInterfaceRegex(['0017880a7876-1','LIFXd073d502b6ef','TunnelMonitor'],/Facades/)
-     *    
+     * ```   
      * might return a Promise which fulfills with:
+     * ```
      *       {
      *          devices: ["LIFXd073d502b6ef","0017880a7876-1"],
      *          interfaces: ["Facades/hasWhiteTemp","Facades/Colorable","Facades/Switchable","Facades/Dimmable"]
      *       }
+     * ```
      */
     this.filterDeviceListByInterfaceRegex = function(deviceids,interfacefilter) {
         var ret = {
@@ -563,32 +609,136 @@ var devJSUtils = function(_devjs,opts) {
     /**
      * A utility to get the device heirarchy already flattened and parsed.
      * Provides the device hierarchy in three ways in an object which resolves as a complex object.
+     * @method  getHierarchy
+     * @example
+     * ```
+     * dev$UtilsDEBUG.getHierarchy().then(function(v){
+     *    console.log(JSON.stringify(v));
+     * });
+     * ```
+     * might return
+     * ```
      * {
-     * hierarchy: // <-- hierarchy key shows the entire tree as an object tree
-        { children:
-         { Bedroom:
-         { children:
-            { 'SuperLong Name Super Long Yeah!!!':
-               { children: {},
-                 resources:
-                  { 'Greenwave-Bulb-216496425084539821': {},
-                    LIFXd073d5101a6a: {} } } },
-           resources: { '001788092b7b-11': {}, '001788214a51-4': {} } },
-         ...
-       allDevices: // <-- a flat list of devices showing location
-        { '001788092b7b-11': { location: 'Bedroom' },
-          '001788214a51-4': { location: 'Bedroom' },
-          '001788092b7b-10': { location: 'Home/Bedroom5/ssSpecial Place/Hidden place' },
-        ...
-       allLocationPaths: // <-- a flat list by location
-        { Bedroom:
-         { children: [ 'SuperLong Name Super Long Yeah!!!' ],
-           resources: [ '001788092b7b-11', '001788214a51-4' ] },
-         'Home/Bedroom5':
-         { children: [ 'Special Place', 'ssSpecial Place' ],
-          resources: [] },
-         'Home/Bedroom6': { children: [], resources: [] },
-     * @param id
+     *    "hierarchy":{
+     *       "children":{
+     *          "Dining Area":{
+     *             "children":{
+     *                "Subloc1":{
+     *                   "children":{
+     * 
+     *                   },
+     *                   "resources":{
+     *                      "WWFL000010":{
+     * 
+     *                      }
+     *                   }
+     *                }
+     *             },
+     *             "resources":{
+     *                "WWFL00000Z":{
+     * 
+     *                }
+     *             }
+     *          },
+     *          "Upstairs":{
+     *             "children":{
+     * 
+     *             },
+     *             "resources":{
+     *                "WWFL000010":{
+     * 
+     *                },
+     *                "WWFL000016":{
+     * 
+     *                }
+     *             }
+     *          }
+     *       },
+     *       "resources":{
+     * 
+     *       }
+     *    },
+     *    "allDevices":{
+     *       "WWFL00000Z":{
+     *          "location":"Dining Area"
+     *       },
+     *       "WWFL000010":{
+     *          "location":"Dining Area/Subloc1"
+     *       },
+     *       "WWFL000016":{
+     *          "location":"Upstairs"
+     *       }
+     *    },
+     *    "allLocationPaths":{
+     *       "Dining Area":{
+     *          "children":[
+     *             "Subloc1"
+     *          ],
+     *          "resources":[
+     *             "WWFL00000Z"
+     *          ],
+     *          "allResources":{     // all resources under this location & its sublocations
+     *             "WWFL00000Z":1,
+     *             "WWFL000010":1
+     *          },
+     *          "childInterfaces":{  // all interfaces under this location & its children
+     *             Core/Interfaces/Unpairable: 1,
+     *             Facades/Colorable: 1,
+     *             Facades/Dimmable: 1,
+     *             Facades/Switchable: 1,
+     *             Facades/hasWhiteTemp: 1
+     *          },
+     *          "childTypes":{
+     *             "Core/Devices/Lighting/WigwagDevices/Filament":1
+     *          }
+     *       },
+     *       "Upstairs":{
+     *          "children":[
+     * 
+     *          ],
+     *          "resources":[
+     *             "WWFL000010",
+     *             "WWFL000016"
+     *          ],
+     *          "allResources":{
+     *             "WWFL000010":1,
+     *             "WWFL000016":1
+     *          },
+     *          "childInterfaces":{
+     *             Core/Interfaces/Unpairable: 1,
+     *             Facades/Colorable: 1,
+     *             Facades/Dimmable: 1,
+     *             Facades/Switchable: 1,
+     *             Facades/hasWhiteTemp: 1
+     *          },
+     *          "childTypes":{
+     *             "Core/Devices/Lighting/WigwagDevices/Filament":1
+     *          }
+     *       },
+     *       "Dining Area/Subloc1":{
+     *          "children":[
+     * 
+     *          ],
+     *          "resources":[
+     *             "WWFL000010"
+     *          ],
+     *          "allResources":{
+     *             "WWFL000010":1
+     *          },
+     *          "childInterfaces":{
+     *             Core/Interfaces/Unpairable: 1,
+     *             Facades/Colorable: 1,
+     *             Facades/Dimmable: 1,
+     *             Facades/Switchable: 1,
+     *             Facades/hasWhiteTemp: 1
+     *          },
+     *          "childTypes":{
+     *             "Core/Devices/Lighting/WigwagDevices/Filament":1
+     *          }
+     *       }
+     *    }
+     * }
+     * ```
      * @returns {Promise} resolves with said object
      */
     this.getHierarchy = function() {
@@ -608,6 +758,12 @@ var devJSUtils = function(_devjs,opts) {
         });
     };
 
+
+    /**
+     * Return a Promise which fulfills with a list of devices which are not in any resource groups.
+     * @method  listUnplacedDevices
+     * @return {Promise} Promise which fulfills with above object
+     */
     this.listUnplacedDevices = function() {
         return new Promise(function(resolve,reject) {
             var ret = cache.get(CACHE_UNPLACED_DEVICE_LIST);
@@ -625,6 +781,11 @@ var devJSUtils = function(_devjs,opts) {
         });
     };
 
+    /**
+     * Return a Promise which fulfills with a list of devices which are in at least one resource group.
+     * @method  listPlacedDevices
+     * @return {Promise} Promise which fulfills with above object
+     */
     this.listPlacedDevices = function() {
         var self = this;
         return new Promise(function(resolve,reject) {
@@ -645,8 +806,8 @@ var devJSUtils = function(_devjs,opts) {
 
     /**
      * Returns an Array of all device names. This will used cache if available.
-     * @param clearcache
-     * @returns {*}
+     * @method  listAllDevices
+     * @return {Promise} Promise which fulfills with above object
      */
     this.listAllDevices = function() {
         var self = this;
@@ -665,9 +826,21 @@ var devJSUtils = function(_devjs,opts) {
     };
 
     /**
-     * Build a list of the format { 'IDabc' : { registered: true, reachable: false, [ other data... ] }, 'IDxyz' : { registered: ... }
-     * from a given list of device IDs. If a device ID is not known by deviceJS it is reported 'null'
-     * @param {Array|device ID} list
+     * Build a list of the format 
+     * ```[{ 'IDabc' : { 
+     *         registered: true, 
+     *         reachable: false, 
+     *         [ other data... ] 
+     *    }, 'IDxyz' : { 
+     *        registered: ...
+     *        ...
+     *    }, 
+     *    ... more devices
+     *    ]
+     * ```
+     * from a given list of device IDs. If a device ID is not known by deviceJS it is reported `null`
+     * @method  listDeviceStatus
+     * @param {Array|device ID} list List of device IDs to provide status, as an `Array` of `String`
      * @returns {Promise} which will resolve to the given list
      */
     this.listDeviceStatus = function(list) {
@@ -730,8 +903,9 @@ var devJSUtils = function(_devjs,opts) {
     };
 
     /**
-     * returns a list of devices which are in deviceJS but are not in the given
-     * collection (object, with device IDs as keys). The collection should be keyed by resource ID.
+     * returns a list of devices which are accounted for by deviceJS but are not in the given
+     * Array of device IDs. The collection should be keyed by resource ID.
+     * @method  listExcludedResourceIDs
      * @param {Array} list of device IDs
      * @return {Promise} resolves to an Array of device IDs not in 'list'
      */
@@ -752,6 +926,11 @@ var devJSUtils = function(_devjs,opts) {
         });
     };
 
+    /**
+     * list all interface types
+     * @method  listInterfaceTypes
+     * @return {Promise} a Promise which fulfills with state value 
+     */
     this.listInterfaceTypes = function() {
         return new Promise(function(resolve,reject) {
             var ky = "listInterfaceTypes()";
@@ -785,6 +964,7 @@ var devJSUtils = function(_devjs,opts) {
 
     /**
      * Get a list of types from a list of devices
+     * @method  listTypesOfDevices
      * @param {Array|string} id A string or Array of device IDs
      * @return {Promise} which fulfills with an Array of 'Resource Types' the device(s) belongs to. The list is in no particular order.
      */
@@ -873,6 +1053,11 @@ var devJSUtils = function(_devjs,opts) {
     };
 
 
+    /**
+     * Lists all resource types know about by deviceJS
+     * @method listResourceTypes
+     * @returns {Promise} which will resolve to the given list
+     */
     this.listResourceTypes = function() {
         return new Promise(function(resolve,reject) {
             var ky = "listResourceTypes()";
@@ -900,6 +1085,7 @@ var devJSUtils = function(_devjs,opts) {
 
     /**
      * Get a list of interfaces from a list of resource types.
+     * @method  listInterfacesOfTypes
      * @param {Array|string} id A string or Array of device IDs
      * @return {Promise} which fulfills with an Array of 'Interfaces' the 'Resource Type(s)' implement. The list is in no particular order.
      */
@@ -941,6 +1127,7 @@ var devJSUtils = function(_devjs,opts) {
 
     /**
      * Get a list of interfaces a device implements
+     * @method  listInterfacesOfDevices
      * @param {Array|string} id A string or Array of device IDs
      * @return {Promise} which fulfills with an Array of Interfaces the device(s) implement. The list is in no particular order.
      */
@@ -999,6 +1186,7 @@ var devJSUtils = function(_devjs,opts) {
 
 
     /**
+     * NOT IMPLEMENTED
      * This uses dev$.forgetResource() to remove resources which are:
      * - not in a location
      * - not registered (and not reachable)
@@ -1016,6 +1204,15 @@ var devJSUtils = function(_devjs,opts) {
     };
 
 
+    /**
+     * Moves a device from one resource group to another by stated paths. Places the device in the given resource group
+     * then removes the device from the other resouece group.
+     * @method  
+     * @param  {String} id       The device ID of the resource
+     * @param  {String} frompath The String path where the device should 'moved' from.
+     * @param  {String} topath   The String path where the device should 'moved' to.
+     * @return {Promise}          A Promise which fulfills when the entire operation is complete
+     */
     this.moveDevice = function(id,frompath,topath) {
         return devJS.joinResourceGroup(id,topath).then(function(){
             return devJS.leaveResourceGroup(id,frompath);
@@ -1023,10 +1220,13 @@ var devJSUtils = function(_devjs,opts) {
     };
 
     /**
-     * This works like the 'mv' command in Unix.
-     * @param from {string} a path
-     * @param to {string} new path
-     * @param *graph {object} optional. results from dev$.getResourceGroup('') If not provided this will be pulled from
+     * This works just like the 'mv' command in Unix. A new resource group is created, if it does not already exist. All devices are joined to
+     * this resource group, then devices are removed form the old resource group, then the empty resource group is removed. 'sub resource groups'
+     * or 'folders' (if looking at it using the file system metaphor) are supported, and the function will recursively handle them.
+     * @method  moveResourceGroup
+     * @param {String} from a path
+     * @param {String} to new path
+     * @param {Object} [graph]  Optional. results from dev$.getResourceGroup('') If not provided this will be pulled from
      * cache in devJSUtils
      */
     this.moveResourceGroup = function(from,to,graph){
