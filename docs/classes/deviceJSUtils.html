@@ -222,10 +222,6 @@ var ans = utils.getHierarchy().then(function(ans){
 
                             </li>
                             <li class="index-item method">
-                                <a href="#method_"></a>
-
-                            </li>
-                            <li class="index-item method">
                                 <a href="#method_listenToDevice">listenToDevice</a>
 
                             </li>
@@ -259,6 +255,10 @@ var ans = utils.getHierarchy().then(function(ans){
                             </li>
                             <li class="index-item method">
                                 <a href="#method_listUnplacedDevices">listUnplacedDevices</a>
+
+                            </li>
+                            <li class="index-item method">
+                                <a href="#method_moveDevice">moveDevice</a>
 
                             </li>
                             <li class="index-item method">
@@ -730,101 +730,6 @@ which needs the graph, it will be pulled again from the deviceJS runtime.</p>
             <div class="returns-description">
                         <span class="type">Promise</span>:
                     <p>which will resolve to the given list</p>
-
-            </div>
-        </div>
-
-
-</div>
-<div id="method_" class="method item">
-    <h3 class="name"><code></code></h3>
-
-        <div class="args">
-            <span class="paren">(</span><ul class="args-list inline commas">
-                <li class="arg">
-                        <code>id</code>
-                </li>
-                <li class="arg">
-                        <code>frompath</code>
-                </li>
-                <li class="arg">
-                        <code>topath</code>
-                </li>
-            </ul><span class="paren">)</span>
-        </div>
-
-        <span class="returns-inline">
-            <span class="type">Promise</span>
-        </span>
-
-
-
-
-
-
-
-    <div class="meta">
-                <p>
-                Defined in
-        <a href="../files/devjsUtils.js.html#l1207"><code>devjsUtils.js:1207</code></a>
-        </p>
-
-
-
-    </div>
-
-    <div class="description">
-        <p>Moves a device from one resource group to another by stated paths. Places the device in the given resource group
-then removes the device from the other resouece group.</p>
-
-    </div>
-
-        <div class="params">
-            <h4>Parameters:</h4>
-
-            <ul class="params-list">
-                <li class="param">
-                        <code class="param-name">id</code>
-                        <span class="type">String</span>
-
-
-                    <div class="param-description">
-                        <p>The device ID of the resource</p>
-
-                    </div>
-
-                </li>
-                <li class="param">
-                        <code class="param-name">frompath</code>
-                        <span class="type">String</span>
-
-
-                    <div class="param-description">
-                        <p>The String path where the device should 'moved' from.</p>
-
-                    </div>
-
-                </li>
-                <li class="param">
-                        <code class="param-name">topath</code>
-                        <span class="type">String</span>
-
-
-                    <div class="param-description">
-                        <p>The String path where the device should 'moved' to.</p>
-
-                    </div>
-
-                </li>
-            </ul>
-        </div>
-
-        <div class="returns">
-            <h4>Returns:</h4>
-
-            <div class="returns-description">
-                        <span class="type">Promise</span>:
-                    <p>A Promise which fulfills when the entire operation is complete</p>
 
             </div>
         </div>
@@ -1380,6 +1285,101 @@ Array of device IDs. The collection should be keyed by resource ID.</p>
             <div class="returns-description">
                         <span class="type">Promise</span>:
                     <p>Promise which fulfills with above object</p>
+
+            </div>
+        </div>
+
+
+</div>
+<div id="method_moveDevice" class="method item">
+    <h3 class="name"><code>moveDevice</code></h3>
+
+        <div class="args">
+            <span class="paren">(</span><ul class="args-list inline commas">
+                <li class="arg">
+                        <code>id</code>
+                </li>
+                <li class="arg">
+                        <code>frompath</code>
+                </li>
+                <li class="arg">
+                        <code>topath</code>
+                </li>
+            </ul><span class="paren">)</span>
+        </div>
+
+        <span class="returns-inline">
+            <span class="type">Promise</span>
+        </span>
+
+
+
+
+
+
+
+    <div class="meta">
+                <p>
+                Defined in
+        <a href="../files/devjsUtils.js.html#l1207"><code>devjsUtils.js:1207</code></a>
+        </p>
+
+
+
+    </div>
+
+    <div class="description">
+        <p>Moves a device from one resource group to another by stated paths. Places the device in the given resource group
+then removes the device from the other resouece group.</p>
+
+    </div>
+
+        <div class="params">
+            <h4>Parameters:</h4>
+
+            <ul class="params-list">
+                <li class="param">
+                        <code class="param-name">id</code>
+                        <span class="type">String</span>
+
+
+                    <div class="param-description">
+                        <p>The device ID of the resource</p>
+
+                    </div>
+
+                </li>
+                <li class="param">
+                        <code class="param-name">frompath</code>
+                        <span class="type">String</span>
+
+
+                    <div class="param-description">
+                        <p>The String path where the device should 'moved' from.</p>
+
+                    </div>
+
+                </li>
+                <li class="param">
+                        <code class="param-name">topath</code>
+                        <span class="type">String</span>
+
+
+                    <div class="param-description">
+                        <p>The String path where the device should 'moved' to.</p>
+
+                    </div>
+
+                </li>
+            </ul>
+        </div>
+
+        <div class="returns">
+            <h4>Returns:</h4>
+
+            <div class="returns-description">
+                        <span class="type">Promise</span>:
+                    <p>A Promise which fulfills when the entire operation is complete</p>
 
             </div>
         </div>

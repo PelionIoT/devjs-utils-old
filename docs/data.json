@@ -373,7 +373,7 @@
             "line": 1207,
             "description": "Moves a device from one resource group to another by stated paths. Places the device in the given resource group\nthen removes the device from the other resouece group.",
             "itemtype": "method",
-            "name": "",
+            "name": "moveDevice",
             "params": [
                 {
                     "name": "id",

@@ -1207,7 +1207,7 @@ var devJSUtils = function(_devjs,opts) {
     /**
      * Moves a device from one resource group to another by stated paths. Places the device in the given resource group
      * then removes the device from the other resouece group.
-     * @method  
+     * @method  moveDevice
      * @param  {String} id       The device ID of the resource
      * @param  {String} frompath The String path where the device should 'moved' from.
      * @param  {String} topath   The String path where the device should 'moved' to.
