@@ -1,0 +1,1508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>devjsUtils.js</title>
+    <link rel="stylesheet" href="http://yui.yahooapis.com/3.9.1/build/cssgrids/cssgrids-min.css">
+    <link rel="stylesheet" href="../assets/vendor/prettify/prettify-min.css">
+    <link rel="stylesheet" href="../assets/css/main.css" id="site_styles">
+    <link rel="icon" href="../assets/favicon.ico">
+    <script src="http://yui.yahooapis.com/combo?3.9.1/build/yui/yui-min.js"></script>
+</head>
+<body class="yui3-skin-sam">
+
+<div id="doc">
+    <div id="hd" class="yui3-g header">
+        <div class="yui3-u-3-4">
+                <h1><img src="../assets/css/logo.png" title="" width="117" height="52"></h1>
+        </div>
+        <div class="yui3-u-1-4 version">
+            <em>API Docs for: </em>
+        </div>
+    </div>
+    <div id="bd" class="yui3-g">
+
+        <div class="yui3-u-1-4">
+            <div id="docs-sidebar" class="sidebar apidocs">
+                <div id="api-list">
+                    <h2 class="off-left">APIs</h2>
+                    <div id="api-tabview" class="tabview">
+                        <ul class="tabs">
+                            <li><a href="#api-classes">Classes</a></li>
+                            <li><a href="#api-modules">Modules</a></li>
+                        </ul>
+                
+                        <div id="api-tabview-filter">
+                            <input type="search" id="api-filter" placeholder="Type to filter APIs">
+                        </div>
+                
+                        <div id="api-tabview-panel">
+                            <ul id="api-classes" class="apis classes">
+                                <li><a href="../classes/deviceJSUtils.html">deviceJSUtils</a></li>
+                                <li><a href="../classes/orderedTable.html">orderedTable</a></li>
+                            </ul>
+                
+                
+                            <ul id="api-modules" class="apis modules">
+                                <li><a href="../modules/utils.html">utils</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="yui3-u-3-4">
+                <div id="api-options">
+                    Show:
+                    <label for="api-show-inherited">
+                        <input type="checkbox" id="api-show-inherited" checked>
+                        Inherited
+                    </label>
+            
+                    <label for="api-show-protected">
+                        <input type="checkbox" id="api-show-protected">
+                        Protected
+                    </label>
+            
+                    <label for="api-show-private">
+                        <input type="checkbox" id="api-show-private">
+                        Private
+                    </label>
+                    <label for="api-show-deprecated">
+                        <input type="checkbox" id="api-show-deprecated">
+                        Deprecated
+                    </label>
+            
+                </div>
+            
+            <div class="apidocs">
+                <div id="docs-main">
+                    <div class="content">
+<h1 class="file-heading">File: devjsUtils.js</h1>
+
+<div class="file">
+    <pre class="code prettyprint linenums">
+/**
+ * Created by ed on 11/6/15.
+ */
+var Cache = require(&#x27;js-cache&#x27;);
+var Promise = require(&#x27;es6-promise&#x27;).Promise;
+var _ = require(&#x27;lodash&#x27;);
+var orderedTable = require(&#x27;./orderedTable.js&#x27;);
+var path = require(&#x27;path&#x27;);
+
+
+var ON_log_dbg = function() {
+    //var args = Array.prototype.slice.call(arguments);
+    //args.unshift(&quot;WebDeviceSim&quot;);
+    if(global.log)
+        log.debug.apply(undefined,arguments);
+    else
+        console.log.apply(undefined,arguments);
+};
+
+var log_err = function() {
+    if(global.log)
+        log.error.apply(undefined,arguments);
+    else {
+        var args = Array.prototype.slice.call(arguments);
+        args.unshift(&quot;ERROR&quot;);
+        console.error.apply(undefined,args);
+    }
+
+};
+
+
+var log_warn = function() {
+    if(global.log)
+        log.warn.apply(undefined,arguments);
+    else {
+        var args = Array.prototype.slice.call(arguments);
+        args.unshift(&quot;WARN&quot;);
+        console.error.apply(undefined,args);
+    }
+};
+
+
+
+var get_paths = function(s) {
+    var delim = &#x27;/&#x27;;
+    var ret = [];
+    if(typeof s == &#x27;string&#x27;) {
+        var ans = s.split(delim);
+        if(ans.length &gt; 0 &amp;&amp; ans[0].length == 0) {
+            ans.shift(); // skip the &#x27;/&#x27;
+        }
+        var l = ans.length;
+        var r = 0;
+        while(r &lt; l) {
+            var s = ans[0];
+            for(var p = 1;p&lt;(r+1);p++) {
+                if(ans[p].length &gt; 0) {
+                    s += delim; s += ans[p];
+                } else {
+                    return ret; // just get out if the last split was .length = 0
+                }
+            }
+            ret[r] = s;
+            r++;
+        }
+        return ret;
+    } else {    
+        return [];
+    }
+}
+// var s1 = &quot;/hey/now/you/s&quot;;
+//    var s1 = &quot;hey/now/you/s&quot;;
+//    var s1 = &quot;hey/now/you/&quot;;
+// 
+// console.log(&quot;&quot;,s1,&quot; is &quot;,get_paths(s1)); 
+// returns  /hey/now/you/s  is  [ &#x27;hey&#x27;, &#x27;hey/now&#x27;, &#x27;hey/now/you&#x27;, &#x27;hey/now/you/s&#x27; ]
+
+
+/**
+ * @class  deviceJSUtils
+ * @constructor
+ * @param  {Object} _devjs A deviceJS instance. typically &#x60;dev$&#x60;
+ * @param  {Object} [opts]  An options object
+ * @example
+ * &#x60;&#x60;&#x60;
+ * var utils = require(&quot;devjs-utils&quot;).instance(dev$);
+ * console.log(&quot;Getting heiarchy&quot;);
+ * 
+ * var ans = utils.getHierarchy().then(function(ans){
+ *    var s= JSON.stringify(ans);
+ *    console.log(s);
+ * });
+ * &#x60;&#x60;&#x60; 
+ */
+var devJSUtils = function(_devjs,opts) {
+    var cache = null;
+
+    var devJS = _devjs;
+
+    this.assignDevJS = function(_devjs) {
+        devJS = _devjs;
+    };
+
+    var callback_tables = {};  // event_name:orderedTable
+    var _self = this;
+    var TTL = 30000;  // 30 seconds
+    var ListenTTL = 1000*60*10; // 10 minutes...
+
+    var log_dbg = function() {
+
+    };
+
+    if(opts) {
+        if(opts.default_timeout != undefined) TTL = opts.default_timeout;
+        if(opts.listener_timeout != undefined) ListenTTL = opts.listener_timeout;
+        if(opts.debug_mode) {
+            log_dbg = ON_log_dbg;
+        }
+        if(opts.set_cache) {
+            cache = set_cache;
+        }
+    }
+
+    if(!cache)
+        cache = new Cache();
+
+    var hash_callback = function(id,event_name,uniq,callback) {
+        return &quot;&quot;+id+&#x27;:&#x27;+uniq+&quot;{&quot;+event_name+&quot;}&quot;+callback; // &#x27;callback&#x27; will be cast to a string
+    };
+    var hash_id_event = function(id,event_name) {
+        return &quot;&quot;+id+&quot;{&quot;+event_name+&quot;}&quot;; // &#x27;callback&#x27; will be cast to a string
+    };
+
+    var emitter_event_cb_count = null;
+
+
+    this.clearCache = function() {
+        cache = new Cache();
+    };
+
+    var cacheKeyDeviceListResources = function(id) {
+        return &#x27;select(id=&quot;&#x27;+id+&#x27;&quot;).listResources()&#x27;;
+    };
+
+    var CACHE_DEVICE_LIST = &quot;$DEVICE_LIST&quot;;
+    var CACHE_PLACED_DEVICE_LIST = &quot;$PLACED&quot;;
+    var CACHE_UNPLACED_DEVICE_LIST = &quot;$UNPLACED&quot;;
+    var CACHE_WALK_GRAPH_ALL=&quot;all$walkGraph&quot;;
+
+    /**
+     * Handles the details of setting up a listener for a device event, with a callback. The callback will fire for &#x60;event_name&#x60;
+     * for up to the default TTL or &#x60;custom_ttl&#x60;. After this, the callback will be purged. If there are no callback assigned for
+     * an event, or they all timeout, then the listener is stopped. A single unique callback will never be in the list more than
+     * once, and if called again on the same &#x60;callback&#x60; / &#x60;uniq&#x60; combination, the TTL value the purge time is just reset.
+     *
+     * This function may be called more than once with the same unique identifier with no harm done. This allows a caller
+     * to just always assign a callback, and if the code stops running, eventually the callback is cleared out.
+     *
+     * This function is more efficient than setting up your own listeners per device, b/c it listens to all devices, and 
+     * then calls the needed callbacks based on the event.
+     *
+     * @method listenToDevice
+     * @param {String} id The device ID.
+     * @param {String} event_name The event name of interest. For example &#x60;&quot;unreachable&quot;&#x60;
+     * @param {String} uniq A unique string of some sort.
+     * @param {Function} callback The callback to be called.
+     * @param {Number} [custom_ttl] A number in milliseconds to timeout the callback. If not stated a default is used.
+     */
+    this.listenToDevice = function(id,event_name,uniq,callback,custom_ttl) {
+        if(arguments.length &lt; 4)
+            throw new Error(&quot;Invalid number of parameters&quot;);
+
+        var cb_name = hash_callback(id,event_name,uniq,callback);
+//        var table_name = hash_id_event(id,event_name);
+        var table_name = event_name;
+        var table = callback_tables[table_name];
+        if(!table) {
+            table = callback_tables[table_name] = {
+                cache: new Cache(),  // used to track when you should remove a callback handler
+                table: new orderedTable(),
+                master_callback: null,
+                event_label: event_name,
+                devjs_selection: null
+            };
+
+            table.master_callback = function (id, eventlabel) {
+                log_dbg(&quot;in master_callback()&quot;);
+                if (table.event_label == eventlabel) {
+                    log_dbg(&quot;got associated event:&quot;,eventlabel);
+                    var argz = arguments;
+                    table.table.forEach(function (val, tableid, order) {
+                        if (val &amp;&amp; val.id == id) {
+                            if (typeof(val.cb) == &#x27;function&#x27;) {
+                                val.cb.apply(undefined, argz);
+                            } else {
+                                log_err(&quot;Bad entry as callback in devjsUtils.listenToDevice&quot;);
+                            }
+                        }
+                    });
+                }
+            };
+
+            table.devjs_selection = devJS.select(&#x27;id=*&#x27;); // this seems in efficient, but right now its better.
+                                // the devicejs engine does not deal well with many subscribers at the moment
+            //log_dbg(&#x27;selection&#x27;, table.devjs_selection);
+            //if(emitter_event_cb_count === null) {
+            emitter_event_cb_count = table.devjs_selection._peer.listenerCount(&#x27;event&#x27;);
+            //}
+            emitter_event_cb_count++;
+            //if((emitter_event_cb_count+1) &gt; table.devjs_selection.listeners(&#x27;event&#x27;).length) {
+            //    log_dbg(&#x27;bump MaxListeners-&gt;&#x27;,emitter_event_cb_count + 10);
+            // FIXME see DVJS-456
+            table.devjs_selection._peer.setMaxListeners(emitter_event_cb_count + 10);
+            table.devjs_selection.setMaxListeners(emitter_event_cb_count + 10);
+            //}
+//            log_dbg(&quot;on() selection:&quot;+&#x27;id=&quot;&#x27;+id+&#x27;&quot;&#x27;);
+            log_dbg(&quot;on() selection:&quot; + &#x27;id=*&#x27;);
+            table.devjs_selection.subscribeToEvent(event_name);
+            table.devjs_selection.on(&#x27;event&#x27;, table.master_callback);
+
+            table.cache.on(&#x27;del&#x27;, function (key) {
+                log_dbg(&quot;delete key (callback cache timeout) [&quot;,key,&quot;]&quot;);
+                table.table.remove(key);
+                if (table.cache.size() &lt; 1) {
+                    // remove callback
+                    table.devjs_selection.unsubscribeFromEvent(table.event_label);
+                }
+            });
+        }
+        //} else if(table.cache.size() &lt; 1) {
+        //    // add listener / callback
+        //    table.devjs_selection = devJS.select(&#x27;id=&quot;*&quot;&#x27;); // this seems in efficient, but right now its better.
+        //                                                    // the devicejs enginer does not deal well with many subscribers at the moment
+        //    log_dbg(&quot;here1&quot;);
+        //    //table.devjs_selection.subscribeToEvent(event_name);
+        //}
+
+        if(typeof custom_ttl == &#x27;number&#x27;)
+            table.cache.set(cb_name,cb_name,custom_ttl); // refresh or update cached
+        else
+            table.cache.set(cb_name,cb_name,ListenTTL); // refresh or update cached
+        var device_callback = {
+            cb: callback,
+            id: id
+        };
+        table.table.replaceAdd(cb_name,device_callback);   // add/re-add to table
+    };
+
+
+    var _uncachedGetAllResources = function() {
+        return new Promise(function(resolve,reject) {
+            devJS.select(&#x27;id=*&#x27;).listResources().then(function (r) {
+                var ky = &#x27;select(&quot;id=*&quot;).listResources()&#x27;;
+                cache.set(ky, r, TTL);
+                var keyz = Object.keys(r);
+                var devlist = [];
+                for (var n = 0; n &lt; keyz.length; n++) {
+                    var obj = {};
+                    obj[keyz[n]] = r[keyz[n]];
+                    log_dbg(&quot;cache &lt;- &quot;, obj);
+                    devlist.push(keyz[n]);
+                    cache.set(cacheKeyDeviceListResources(keyz[n]), obj, TTL);
+                }
+                cache.set(CACHE_DEVICE_LIST, keyz, TTL); // store a simple list of device IDs also...
+                resolve({keyz:keyz});
+            }).catch(function (err) {
+                log_err(&quot;_uncachedGetAllResources: API error&quot;, err);
+                reject(err);
+            });
+        });
+    };
+
+    /**
+     * This asks deviceJS for all devices. It then stores all this as cache, so that if you ask for individual
+     * devices, their status is already there. This is to speed up initial load of a web interface or mobile UI
+     * which wants to ask for certain devices. A single call to deviceJS is much quicker. This gets the end user
+     * out of the task of dealing with this.
+     *
+     * This is not a cached call. It will overwrite all cached data. Always fulfills
+     *
+     * @method  preloadDeviceStatus
+     */
+    this.preloadDeviceStatus = function() {
+        var self = this;
+        return new Promise(function(resolve,reject) {
+            devJS.select(&#x27;id=*&#x27;).listResources().then(function (r) {
+                var ky = &#x27;select(&quot;id=*&quot;).listResources()&#x27;;
+                cache.set(ky,r,TTL);
+                var keyz = Object.keys(r);
+                var devlist = [];
+                for (var n=0;n&lt;keyz.length;n++) {
+                    var obj = {};
+                    obj[keyz[n]] = r[keyz[n]];
+                    log_dbg(&quot;cache &lt;- &quot;, obj);
+                    devlist.push(keyz[n]);
+                    cache.set(cacheKeyDeviceListResources(keyz[n]),obj,TTL);
+                }
+
+                cache.set(CACHE_DEVICE_LIST,devlist,TTL); // store a simple list of device IDs also...
+
+                var proms = [];
+
+                proms.push(self.listTypesOfDevices(keyz).catch(function(err){
+                    log_err(&quot;preloadDeviceStatus&quot;,&quot;Error back from deviceJS API:&quot;, err);
+                    //resolve();
+                }));
+
+
+                proms.push(self.listInterfaceTypes());
+
+                proms.push(devJS.listResourceTypes().then(function (r) {
+                    var ky = &quot;listResourceTypes()&quot;;
+                    cache.set(ky, r, TTL * 3); // give it a bigger TTL, this rarely changes
+                }).catch(function(err){
+                    log_err(&quot;preloadDeviceStatus&quot;,&quot;Error back from deviceJS API (2):&quot;, err);
+                    //resolve();
+                }));
+
+                Promise.all(proms).then(function(){
+                    resolve();
+                },function(){
+                    log_err(&quot;API Errors in preloadDeviceStatus()&quot;);
+                    resolve();
+                });
+
+            }, function (err) {
+                log_err(&quot;preloadDeviceStatus&quot;,&quot;Error back from deviceJS API (3):&quot;, err);
+                resolve();
+            });
+        });
+    };
+
+
+    /**
+     * Invalidates devjs-utils internal graph, so that the next time a call is used
+     * which needs the graph, it will be pulled again from the deviceJS runtime.
+     *
+     * @method invalidateGraph
+     */
+    this.invalidateGraph = function() {
+        var ky = &quot;getResourceGroup(&#x27;&#x27;)&quot;;
+        cache.del(ky);
+    };
+
+    /**
+     * Invalidates the devjs-utils internal cache for resources. 
+     *
+     * @method invalidateResources
+     */
+    this.invalidateResources = function() {
+        var ky = &#x27;select(&quot;id=*&quot;).listResources()&#x27;;
+        cache.del(ky);
+    };
+
+    /**
+     * A cached call to &#x60;dev$.getResourceGroup(&#x27;&#x27;)&#x60;
+     * @return {Promise} which fulfills with the resource tree. 
+     */
+    this.getResourceTree = function() {
+        return new Promise(function(resolve,reject) {
+            var ky = &quot;getResourceGroup(&#x27;&#x27;)&quot;;
+            var ret = cache.get(ky);
+            if(!ret) {
+                devJS.getResourceGroup(&#x27;&#x27;).then(function(ret){
+                    cache.set(ky,ret,TTL);
+                    resolve(ret);
+                }).catch(function(e){
+                    log_err(&quot;getResourceTree - API failure:&quot;,e);
+                    reject(e);
+                });
+            } else {
+                resolve(ret);
+            }
+        });
+    };
+
+
+    // non recursize graph walk...
+    var walkGraph = function(graph) {
+        var hierarchy = graph.hierarchy;
+        graph.allDevices = {};
+        graph.allLocationPaths = {};
+
+        var aux_proms = []; // promises of secondary queries on devices.
+
+        var stack = []; // hold a path to where we are in the graph (a tree path)
+
+        var get_ifs = function(paths,typenames) {
+            return _self.listInterfacesOfTypes(typenames).then(function(iflist){
+                log_dbg(&quot;***************** 1 get_ifs &quot;);
+                var p = paths.length;
+                while(p--) {
+                log_dbg(&quot;***************** 1.1 get_ifs &quot;,paths[p]);
+                    var q = iflist.length;
+                    while(q--) { // merge into interface list
+                        graph.allLocationPaths[paths[p]].childInterfaces[iflist[q]] = 1;
+                    }
+                }
+                                log_dbg(&quot;***************** 2 get_ifs &quot;);
+            });
+        }
+
+
+        var get_aux_data = function(list,paths) {   
+            log_dbg(&quot;***************** 1 get_aux_data &quot;,list,paths);                               
+            var p2 = list.length;
+            while(p2--) {
+                // var p = stackcopy.length;
+                var p = paths.length;
+                log_dbg(&quot;***************** 2.05 get_aux_data &quot;,list[p2]);                                
+                while(p--) { // merge into types list
+                    graph.allLocationPaths[paths[p]].allResources[list[p2]] = 1;
+                }
+            } 
+
+            aux_proms.push(
+                _self.listTypesOfDevices(list).then(function(typelist){
+                    log_dbg(&quot;***************** 2.1 get_aux_data &quot;);                                
+                    var q = typelist.length;
+                    while(q--) {
+                        var p = paths.length;
+                                            log_dbg(&quot;***************** 2.2 get_aux_data &quot;);                                
+                        while(p--) { // merge into types list
+                            graph.allLocationPaths[paths[p]].childTypes[typelist[q]] = 1;
+                        }                    
+                    }
+                    aux_proms.push(get_ifs(paths,typelist).catch(function(e){
+                        log_err(&quot;@catch get_aux_data&quot;,e);
+                    })
+                    );
+                })
+            );
+                        log_dbg(&quot;***************** 3 get_aux_data &quot;);                                
+        }
+
+        var grab_resources = function(res,locationpath) {
+            var keyz = Object.keys(res);
+            var pathz = get_paths(locationpath)
+            for(var n=0;n&lt;keyz.length;n++) {
+                log_dbg(&quot;..found device:&quot;,keyz[n],&quot;@&quot;,locationpath);
+                //graph.allDevices[keyz[n]] = res[keyz[n]];
+                graph.allDevices[keyz[n]] = {
+                    location: locationpath
+                };
+                graph.allLocationPaths[locationpath].allResources[keyz[n]] = 1;
+            }
+            // grab interfaces and types for those devices, and put in the cumulative list of the parent and all grand-parents, etc.
+            log_dbg(&quot;***************** 1 getHierarchy &quot;);
+            get_aux_data(keyz,get_paths(locationpath));
+            log_dbg(&quot;***************** 2 getHierarchy &quot;);
+        };
+
+        grab_resources(hierarchy.resources);
+        if(hierarchy.children) {
+            stack.push({leaves: hierarchy.children, parent: null});
+            while(stack.length &gt; 0) {
+                var tree = stack.pop();
+                var keyz = Object.keys(tree.leaves);
+                for (var n = 0; n &lt; keyz.length; n++) {
+                    if (tree.leaves[keyz[n]].children) {
+                        var pushit = {leaves: tree.leaves[keyz[n]].children};
+                        if(tree.parent) {
+                            pushit.parent = tree.parent + &#x27;/&#x27; + keyz[n];
+                        } else {
+                            pushit.parent = keyz[n];
+                        }
+                        log_dbg(&quot;walk @&quot;,pushit.parent,&quot;keyz[n]=&quot;,keyz[n],tree.leaves[keyz[n]]);
+                        graph.allLocationPaths[pushit.parent] = {};
+                        graph.allLocationPaths[pushit.parent].children = Object.keys(pushit.leaves); //tree.leaves[keyz[n]].children;
+                        var devnames = Object.keys(tree.leaves[keyz[n]].resources);
+                        graph.allLocationPaths[pushit.parent].resources = devnames;                  // the resources at this location
+                        graph.allLocationPaths[pushit.parent].allResources = {};                     // a cumulative list (as a map) of all resource at 
+                        // var q = devnames.length;                                                  // ... this location and below
+                        // while(q--) {
+                        //     graph.allLocationPaths[pushit.parent].allResources[devnames[q]] = 1;
+                        // }
+                        graph.allLocationPaths[pushit.parent].childInterfaces = {}; // a list of all interfaces below &#x27;pushit.parent&#x27;
+                        graph.allLocationPaths[pushit.parent].childTypes = {};      // a list of all types (of devices) below &#x27;pushit.parent&#x27;
+                        stack.push(pushit);
+                    }
+                    if (tree.leaves[keyz[n]].resources) {
+                        grab_resources(tree.leaves[keyz[n]].resources,pushit.parent);
+                    }
+                }
+            }
+        }
+
+        return Promise.all(aux_proms);
+    };
+
+    var updateGraph = function() {
+        return new Promise(function(resolve,reject) {
+            _self.getResourceTree().then(function (res) {
+                var out = {};
+                out.hierarchy = res;
+                var proms = [];
+                proms.push(walkGraph(out));
+                cache.set(CACHE_WALK_GRAPH_ALL, out, TTL);
+
+                var placedDevices = Object.keys(out.allDevices);
+                cache.set(CACHE_PLACED_DEVICE_LIST, placedDevices, TTL);
+
+                var ky = &#x27;select(&quot;id=*&quot;).listResources()&#x27;;
+                var ret = cache.get(ky);
+                if (!ret) {
+                    proms.push(
+                        _uncachedGetAllResources().then(function (r) {
+                            if (r) {
+                                ret = _.difference(r.keyz, placedDevices);
+                                cache.set(CACHE_UNPLACED_DEVICE_LIST, ret);
+    //                            resolve();
+                            } else {
+                                log_err(&quot;API failure - no result from listResources()&quot;);
+//                                reject(&quot;API failure&quot;);
+                            }
+                        })
+//                         .catch(function (e) {
+//                             log.error(&quot;API Error&quot;,e);
+// //                            reject(&quot;API Error&quot;, e);
+//                         })
+                        );
+                    Promise.all(proms).then(function(){
+                        resolve();
+                    }).catch(function(e){
+                        log_err(&quot;API Error&quot;,e);
+                        reject(&quot;API Error&quot; + e);
+                    });
+                } else {
+                    var alldevices = Object.keys(ret);
+                    ret = _.difference(alldevices, placedDevices);
+                    cache.set(CACHE_UNPLACED_DEVICE_LIST, ret);
+                    Promise.all(proms).then(function(){
+                        resolve();
+                    }).catch(function(e){
+                        log_err(&quot;API Error&quot;,e);
+                        reject(&quot;API Error&quot; + e);
+                    })
+                }
+            }, function (err) {
+                log_err(&quot;updateGraph - API failure:&quot;, e);
+                reject(err);
+            });
+        });
+    };
+
+    /**
+     * given an array of device IDs, this will show only device IDs which have an interface for their
+     * type which match a given regex
+     * @method  filterDeviceListByInterfaceRegex
+     * @param  {Array} deviceids List of device IDs
+     * @param  {RegExp} interfacefilter A RegExp for filtering
+     * @return {Promse} A Promise which fulfills with an array which is a subset of the device ID array 
+     * that have a matching interface for the given filter
+     * @example
+     * &#x60;&#x60;&#x60;
+     *    dev$UtilsDEBUG.filterDeviceListByInterfaceRegex([&#x27;0017880a7876-1&#x27;,&#x27;LIFXd073d502b6ef&#x27;,&#x27;TunnelMonitor&#x27;],/Facades/)
+     * &#x60;&#x60;&#x60;   
+     * might return a Promise which fulfills with:
+     * &#x60;&#x60;&#x60;
+     *       {
+     *          devices: [&quot;LIFXd073d502b6ef&quot;,&quot;0017880a7876-1&quot;],
+     *          interfaces: [&quot;Facades/hasWhiteTemp&quot;,&quot;Facades/Colorable&quot;,&quot;Facades/Switchable&quot;,&quot;Facades/Dimmable&quot;]
+     *       }
+     * &#x60;&#x60;&#x60;
+     */
+    this.filterDeviceListByInterfaceRegex = function(deviceids,interfacefilter) {
+        var ret = {
+            devices: {},
+            interfaces: {}
+        };
+
+        var deviceMatch = function(id,filter){
+            return new Promise(function(resolve,reject){
+                                    log_dbg(&quot; ** 3&quot;);
+                _self.listInterfacesOfDevices(id).then(function(ifs){
+                    var z = ifs.length;
+                    while(z--) {
+                        if(filter.test(ifs[z])) {
+                            log_dbg(&quot; ** 3 push ret&quot;,ifs[z]);
+                            ret.devices[id] = 1;
+                            ret.interfaces[ifs[z]] = 1;
+                        }
+                    }
+                    resolve();
+                }).catch(function(e){ // no matter what, resolve
+                    log_err(&quot;filterDeviceListByInterfaceRegex: @catch&quot;,e);    
+                    resolve();
+                });
+            });
+        }
+
+        if(!Array.isArray(deviceids) || !(interfacefilter instanceof RegExp)) {
+            return Promise.reject(&quot;utils.filterDeviceListByInterfaceRegex bad parameters&quot;);
+        }
+        log_dbg(&quot; ** 1&quot;);
+        var proms = [];
+        var n = deviceids.length;
+        while(n--) {
+                    log_dbg(&quot; ** 2&quot;);
+            proms.push(deviceMatch(deviceids[n],interfacefilter));
+        }
+        return Promise.all(proms).then(function(){
+            ret.devices = Object.keys(ret.devices);
+            ret.interfaces = Object.keys(ret.interfaces);
+            return Promise.resolve(ret);
+        });
+    }
+
+    /**
+     * A utility to get the device heirarchy already flattened and parsed.
+     * Provides the device hierarchy in three ways in an object which resolves as a complex object.
+     * @method  getHierarchy
+     * @example
+     * &#x60;&#x60;&#x60;
+     * dev$UtilsDEBUG.getHierarchy().then(function(v){
+     *    console.log(JSON.stringify(v));
+     * });
+     * &#x60;&#x60;&#x60;
+     * might return
+     * &#x60;&#x60;&#x60;
+     * {
+     *    &quot;hierarchy&quot;:{
+     *       &quot;children&quot;:{
+     *          &quot;Dining Area&quot;:{
+     *             &quot;children&quot;:{
+     *                &quot;Subloc1&quot;:{
+     *                   &quot;children&quot;:{
+     * 
+     *                   },
+     *                   &quot;resources&quot;:{
+     *                      &quot;WWFL000010&quot;:{
+     * 
+     *                      }
+     *                   }
+     *                }
+     *             },
+     *             &quot;resources&quot;:{
+     *                &quot;WWFL00000Z&quot;:{
+     * 
+     *                }
+     *             }
+     *          },
+     *          &quot;Upstairs&quot;:{
+     *             &quot;children&quot;:{
+     * 
+     *             },
+     *             &quot;resources&quot;:{
+     *                &quot;WWFL000010&quot;:{
+     * 
+     *                },
+     *                &quot;WWFL000016&quot;:{
+     * 
+     *                }
+     *             }
+     *          }
+     *       },
+     *       &quot;resources&quot;:{
+     * 
+     *       }
+     *    },
+     *    &quot;allDevices&quot;:{
+     *       &quot;WWFL00000Z&quot;:{
+     *          &quot;location&quot;:&quot;Dining Area&quot;
+     *       },
+     *       &quot;WWFL000010&quot;:{
+     *          &quot;location&quot;:&quot;Dining Area/Subloc1&quot;
+     *       },
+     *       &quot;WWFL000016&quot;:{
+     *          &quot;location&quot;:&quot;Upstairs&quot;
+     *       }
+     *    },
+     *    &quot;allLocationPaths&quot;:{
+     *       &quot;Dining Area&quot;:{
+     *          &quot;children&quot;:[
+     *             &quot;Subloc1&quot;
+     *          ],
+     *          &quot;resources&quot;:[
+     *             &quot;WWFL00000Z&quot;
+     *          ],
+     *          &quot;allResources&quot;:{     // all resources under this location &amp; its sublocations
+     *             &quot;WWFL00000Z&quot;:1,
+     *             &quot;WWFL000010&quot;:1
+     *          },
+     *          &quot;childInterfaces&quot;:{  // all interfaces under this location &amp; its children
+     *             Core/Interfaces/Unpairable: 1,
+     *             Facades/Colorable: 1,
+     *             Facades/Dimmable: 1,
+     *             Facades/Switchable: 1,
+     *             Facades/hasWhiteTemp: 1
+     *          },
+     *          &quot;childTypes&quot;:{
+     *             &quot;Core/Devices/Lighting/WigwagDevices/Filament&quot;:1
+     *          }
+     *       },
+     *       &quot;Upstairs&quot;:{
+     *          &quot;children&quot;:[
+     * 
+     *          ],
+     *          &quot;resources&quot;:[
+     *             &quot;WWFL000010&quot;,
+     *             &quot;WWFL000016&quot;
+     *          ],
+     *          &quot;allResources&quot;:{
+     *             &quot;WWFL000010&quot;:1,
+     *             &quot;WWFL000016&quot;:1
+     *          },
+     *          &quot;childInterfaces&quot;:{
+     *             Core/Interfaces/Unpairable: 1,
+     *             Facades/Colorable: 1,
+     *             Facades/Dimmable: 1,
+     *             Facades/Switchable: 1,
+     *             Facades/hasWhiteTemp: 1
+     *          },
+     *          &quot;childTypes&quot;:{
+     *             &quot;Core/Devices/Lighting/WigwagDevices/Filament&quot;:1
+     *          }
+     *       },
+     *       &quot;Dining Area/Subloc1&quot;:{
+     *          &quot;children&quot;:[
+     * 
+     *          ],
+     *          &quot;resources&quot;:[
+     *             &quot;WWFL000010&quot;
+     *          ],
+     *          &quot;allResources&quot;:{
+     *             &quot;WWFL000010&quot;:1
+     *          },
+     *          &quot;childInterfaces&quot;:{
+     *             Core/Interfaces/Unpairable: 1,
+     *             Facades/Colorable: 1,
+     *             Facades/Dimmable: 1,
+     *             Facades/Switchable: 1,
+     *             Facades/hasWhiteTemp: 1
+     *          },
+     *          &quot;childTypes&quot;:{
+     *             &quot;Core/Devices/Lighting/WigwagDevices/Filament&quot;:1
+     *          }
+     *       }
+     *    }
+     * }
+     * &#x60;&#x60;&#x60;
+     * @returns {Promise} resolves with said object
+     */
+    this.getHierarchy = function() {
+        return new Promise(function(resolve,reject) {
+            var ret = cache.get(CACHE_WALK_GRAPH_ALL);
+            if(ret) {
+                resolve(ret);
+            } else {
+                updateGraph().then(function(){
+                    ret = cache.get(CACHE_WALK_GRAPH_ALL);
+                    resolve(ret);
+                }).catch(function(e){
+                    log_err(&quot;devjsUtils internal error:&quot;,e);
+                    reject(e);
+                });
+            }
+        });
+    };
+
+
+    /**
+     * Return a Promise which fulfills with a list of devices which are not in any resource groups.
+     * @method  listUnplacedDevices
+     * @return {Promise} Promise which fulfills with above object
+     */
+    this.listUnplacedDevices = function() {
+        return new Promise(function(resolve,reject) {
+            var ret = cache.get(CACHE_UNPLACED_DEVICE_LIST);
+            if(ret) {
+                resolve(ret);
+            } else {
+                updateGraph().then(function(){
+                    ret = cache.get(CACHE_UNPLACED_DEVICE_LIST);
+                    resolve(ret);
+                }).catch(function(e){
+                    log_err(&quot;devjsUtils internal error:&quot;,e);
+                    reject(e);
+                });
+            }
+        });
+    };
+
+    /**
+     * Return a Promise which fulfills with a list of devices which are in at least one resource group.
+     * @method  listPlacedDevices
+     * @return {Promise} Promise which fulfills with above object
+     */
+    this.listPlacedDevices = function() {
+        var self = this;
+        return new Promise(function(resolve,reject) {
+            var ret = cache.get(CACHE_PLACED_DEVICE_LIST);
+            if(ret) {
+                resolve(ret);
+            } else {
+                updateGraph().then(function () {
+                    var ret = cache.get(CACHE_PLACED_DEVICE_LIST);
+                    resolve(ret);
+                }, function (err) {
+                    log_err(&quot;listPlacedDevices - API failure:&quot;, e);
+                    reject(err);
+                });
+            }
+        });
+    };
+
+    /**
+     * Returns an Array of all device names. This will used cache if available.
+     * @method  listAllDevices
+     * @return {Promise} Promise which fulfills with above object
+     */
+    this.listAllDevices = function() {
+        var self = this;
+        return new Promise(function(resolve,reject) {
+            var ret = cache.get(CACHE_DEVICE_LIST);
+            if(ret) {
+                resolve(ret);
+            } else {
+                _uncachedGetAllResources().then(function(r){
+                    resolve(r.keyz);
+                }).catch(function(e){
+                    reject(e);
+                });
+            }
+        });
+    };
+
+    /**
+     * Build a list of the format 
+     * &#x60;&#x60;&#x60;[{ &#x27;IDabc&#x27; : { 
+     *         registered: true, 
+     *         reachable: false, 
+     *         [ other data... ] 
+     *    }, &#x27;IDxyz&#x27; : { 
+     *        registered: ...
+     *        ...
+     *    }, 
+     *    ... more devices
+     *    ]
+     * &#x60;&#x60;&#x60;
+     * from a given list of device IDs. If a device ID is not known by deviceJS it is reported &#x60;null&#x60;
+     * @method  listDeviceStatus
+     * @param {Array|device ID} list List of device IDs to provide status, as an &#x60;Array&#x60; of &#x60;String&#x60;
+     * @returns {Promise} which will resolve to the given list
+     */
+    this.listDeviceStatus = function(list) {
+        if(!Array.isArray(list)) {
+            list = [list];
+        }
+        var stats = {};
+        var prom = [];
+        var get_one = function(id){
+            var ky = cacheKeyDeviceListResources(id);
+            var ret = cache.get(ky);
+            if(ret) {
+                if(typeof ret[id] == &#x27;object&#x27;) {
+                    var kyz = Object.keys(ret[id]);
+                    var n = kyz.length;
+                    stats[id] = {};
+                    while(n--) {
+                        stats[id][kyz[n]] = ret[id][kyz[n]];
+                    }
+                }
+                else
+                    stats[id] = null;
+            } else {
+                prom.push(devJS.select(&#x27;id=&quot;&#x27;+id+&#x27;&quot;&#x27;).listResources().then(function(r){
+                    cache.set(ky,r,TTL);
+                    log_dbg(&#x27;actual lookup id=&#x27;,id,r);
+                    if(typeof r[id] == &#x27;object&#x27;) {
+                        var kyz = Object.keys(r[id]);
+                        var n = kyz.length;
+                        stats[id] = {};
+                        while(n--) {
+                            stats[id][kyz[n]] = r[id][kyz[n]];
+                        }
+                    } else
+                        stats[id] = null;
+                }));
+            }
+        };
+        return new Promise(function(resolve,reject){
+            for(var n=0;n&lt;list.length;n++) {
+                get_one(list[n]);
+            }
+            return Promise.all(prom).then(function(){
+                resolve(stats);
+            }).catch(function(e){
+                reject(e);
+            })
+        });
+    };
+
+    var return_excluded_keys = function(master,list) {
+        var ret = [];
+        var master_keyz = Object.keys(master);
+        for(var n=0;n&lt;master_keyz.length;n++) {
+            if(list[master_keyz[n]] === undefined) {
+                ret.push(master_keyz[n]);
+            }
+        }
+        return ret;
+    };
+
+    /**
+     * returns a list of devices which are accounted for by deviceJS but are not in the given
+     * Array of device IDs. The collection should be keyed by resource ID.
+     * @method  listExcludedResourceIDs
+     * @param {Array} list of device IDs
+     * @return {Promise} resolves to an Array of device IDs not in &#x27;list&#x27;
+     */
+    this.listExcludedResourceIDs = function(list) {
+        return new Promise(function(resolve,reject) {
+            var ky = &#x27;select(&quot;id=*&quot;).listResources()&#x27;;
+            var ret = cache.get(ky);
+            if (ret === undefined) {
+                devJS.select(&quot;id=*&quot;).listResources().then(function (r) {
+                    cache.set(ky,r,TTL*3); // give it a bigger TTL, this rarely changes
+                    resolve(return_excluded_keys(r,list));
+                }).catch(function(e){
+                    reject(e);
+                });
+            } else {
+                resolve(return_excluded_keys(ret,list));
+            }
+        });
+    };
+
+    /**
+     * list all interface types
+     * @method  listInterfaceTypes
+     * @return {Promise} a Promise which fulfills with state value 
+     */
+    this.listInterfaceTypes = function() {
+        return new Promise(function(resolve,reject) {
+            var ky = &quot;listInterfaceTypes()&quot;;
+            var ret = cache.get(ky);
+            if (!ret) {
+                devJS.listInterfaceTypes().then(function (r) {
+                    cache.set(ky, r, TTL * 3); // give it a bigger TTL, this rarely changes
+                    resolve(r);
+                }).catch(function(e){
+                    reject(e);
+                });
+            } else {
+                resolve(ret);
+            }
+        });
+    };
+
+    var setCache_multiSelect_to_singleSelect_listResources = function(res) {
+        var devs = Object.keys(res);
+        for(var n=0;n&lt;devs.length;n++) {
+            var store = {};
+            store[devs[n]] = res[devs[n]]; // store format is just like returned from deviceJS: { DEVICE_ID : { data } }
+            var k = cacheKeyDeviceListResources(devs[n]);
+            log_dbg(&quot;cache &lt;-&quot;,k,store);
+            cache.set(k,store,TTL); // store the listResources() of that device
+        }
+
+        return devs.length;
+    };
+
+
+    /**
+     * Get a list of types from a list of devices
+     * @method  listTypesOfDevices
+     * @param {Array|string} id A string or Array of device IDs
+     * @return {Promise} which fulfills with an Array of &#x27;Resource Types&#x27; the device(s) belongs to. The list is in no particular order.
+     */
+    this.listTypesOfDevices = function(id) {
+        var list = id;
+        if(!Array.isArray(id)) {
+            list = [id];
+        }
+        if(list === undefined || list.length &lt; 1) {
+            return Promise.resolve([]);
+        }
+        return new Promise(function(resolve,reject){
+            var type_list = {};
+            var query_str = &#x27;&#x27;;
+            var not_cached = [];
+            for(var n=0;n&lt;list.length;n++) {
+                var res = cache.get(cacheKeyDeviceListResources(list[n]));
+                if(!res) {
+                    not_cached.push(list[n]);
+                    if(query_str.length &gt; 0)
+                        query_str += &#x27; or &#x27;;
+                    query_str += &#x27;id=&quot;&#x27;+list[n]+&#x27;&quot;&#x27;;
+                } else {
+                    var devs = Object.keys(res);  // this is just like it came from dev$:
+                    // { LIFXd073d5116ab0:
+                    //   { type: &#x27;Core/Devices/Lighting/LIFX/White900BR30&#x27;,
+                    //     registered: true,
+                    //     reachable: true } }
+                    for(var p=0;p&lt;devs.length;p++) {
+                        type_list[res[devs[p]].type] = 1;
+                    }
+                }
+            }
+
+            if(not_cached.length &gt; 0) {
+                devJS.select(query_str).listResources().then(function(r){
+                    log_dbg(&quot;Cache miss: dev$.select(&quot;+query_str+&quot;).listResources()&quot;);
+                    for(var n=0;n&lt;not_cached.length;n++) {
+                        if(r[not_cached[n]]) {
+                            type_list[r[not_cached[n]].type] = 1;
+                        } else {
+                            log_dbg(&quot;listTypesOfDevices() Oops. Resource&quot;,not_cached[n], &quot;not found.&quot;);
+                        }
+                    }
+                    setCache_multiSelect_to_singleSelect_listResources(r);
+                    ret = Object.keys(type_list);
+                    resolve(ret);
+                }).catch(function(e){
+                    log_err(&quot;devJSUtil: listTypesOfDevices Got an error&quot;,e);
+                    reject(e);
+                });
+            } else {
+                ret = Object.keys(type_list);
+                resolve(ret);
+            }
+        });
+
+    };
+
+
+    var extract_interfaces = function(type_list,query_list) {
+        var ret = {};
+        log_dbg(&quot;extract_interfaces:&quot;);//,arguments);
+        /*
+         dev$.listResourceTypes().then(function(r){console.dir(r[&#x27;Core/Devices/Lighting/WebSim/ColorableBulb&#x27;][&#x27;0.0.1&#x27;].interfaces);});
+         [ &#x27;Facades/Dimmable&#x27;,
+         &#x27;Facades/Switchable&#x27;,
+         &#x27;Facades/Colorable&#x27;,
+         &#x27;Facades/hasWhiteTemp&#x27;,
+         &#x27;Core/Interfaces/hasDeviceLabel&#x27; ]
+         */
+        for (var n = 0; n &lt; query_list.length; n++) {
+            //log_dbg(&quot;looking at:&quot;,query_list[n]);
+            if(type_list[query_list[n]]) {
+                var type_def = type_list[query_list[n]];
+                //log_dbg(&quot;type def: &quot;, type_def);
+                var first_version = Object.keys(type_def)[0]; // TODO this maybe an issue if there are multiple version of a interface
+                for(var p=0;p&lt;type_def[first_version].interfaces.length;p++) {
+                    //log_dbg(&quot;found interface:&quot;,type_def[first_version].interfaces[p]);
+                    ret[type_def[first_version].interfaces[p]] = 1;
+                }
+            }
+        }
+        log_dbg(&quot;Done:&quot;,ret);
+        return Object.keys(ret);
+    };
+
+
+    /**
+     * Lists all resource types know about by deviceJS
+     * @method listResourceTypes
+     * @returns {Promise} which will resolve to the given list
+     */
+    this.listResourceTypes = function() {
+        return new Promise(function(resolve,reject) {
+            var ky = &quot;listResourceTypes()&quot;;
+            var ret = cache.get(ky);
+
+            if(!ret) {
+                devJS.listResourceTypes().then(function(r){
+                    log_dbg(&quot;cache miss: listResourceTypes()&quot;,r);
+                    cache.set(ky,r,TTL*3); // give it a bigger TTL, this rarely changes
+                    var ky2 = &quot;listResourceTypes()&quot;;
+                    var ret2 = cache.get(ky2);
+                    if(!ret2) {
+                        throw &quot;Ouch. Weird Weird.&quot;;
+                    }
+                    resolve(r);
+                }).catch(function(e){
+                    reject(e);
+                });
+            } else {
+                log_dbg(&quot;+++++ used CACHE.&quot;);
+                resolve(ret);
+            }
+        });
+    }
+
+    /**
+     * Get a list of interfaces from a list of resource types.
+     * @method  listInterfacesOfTypes
+     * @param {Array|string} id A string or Array of device IDs
+     * @return {Promise} which fulfills with an Array of &#x27;Interfaces&#x27; the &#x27;Resource Type(s)&#x27; implement. The list is in no particular order.
+     */
+    this.listInterfacesOfTypes = function(id) {
+        var list = id;
+        if(!Array.isArray(id)) {
+            list = [id];
+            log_dbg(&quot;listInterfacesOfTypes = not array&quot;);
+        }
+        if(list === undefined || list.length &lt; 1) {
+            return Promise.resolve([]);
+        }
+        return new Promise(function(resolve,reject) {
+            var ky = &quot;listResourceTypes()&quot;;
+            var ret = cache.get(ky);
+
+            if(!ret) {
+                devJS.listResourceTypes().then(function(r){
+                    log_dbg(&quot;cache miss: listResourceTypes()&quot;);
+                    cache.set(ky,r,TTL*3); // give it a bigger TTL, this rarely changes
+                    var ky2 = &quot;listResourceTypes()&quot;;
+                    var ret2 = cache.get(ky2);
+                    if(!ret2) {
+                        throw &quot;Ouch. Weird Weird.&quot;;
+                    }
+                    ret = extract_interfaces(r,list);
+                    resolve(ret);
+                }).catch(function(e){
+                    reject(e);
+                });
+            } else {
+                log_dbg(&quot;+++++ used CACHE.&quot;);
+                ret = extract_interfaces(ret,list);
+                resolve(ret);
+            }
+        });
+    };
+
+
+    /**
+     * Get a list of interfaces a device implements
+     * @method  listInterfacesOfDevices
+     * @param {Array|string} id A string or Array of device IDs
+     * @return {Promise} which fulfills with an Array of Interfaces the device(s) implement. The list is in no particular order.
+     */
+    this.listInterfacesOfDevices = function(id) {
+        var list = id;
+        var self = this;
+        if(!Array.isArray(id)) {
+            list = [id];
+        }
+        if(list.length &lt; 1) {
+            return Promise.resolve([]);
+        }
+        if(id === undefined) {
+            return new Promise(function(resolve,reject){
+                var ky = &#x27;select(&quot;id=*&quot;).listResources()&#x27;;
+                var ret = cache.get(ky);
+                if(ret === undefined) {
+                    devJS.select(&quot;id=*&quot;).listResources().then(function(r){
+                        cache.set(ky,r,TTL*3); // give it a bigger TTL, this rarely changes
+                        var ids = Object.keys(r);
+                        return self.listTypesOfDevices(ids).then(function(r2){
+                            log_dbg(&quot;*********** listTypesOfDevices=&quot;,r2);
+                            self.listInterfacesOfTypes(r2).then(function(r3){
+                                log_dbg(&quot;*********** 1 listInterfacesOfTypes=&quot;,r3);
+                                resolve(r3);
+                            });
+                        });
+                    }).catch(function(e){
+                        reject(e);
+                    });
+                } else {
+                    var ids = Object.keys(ret);
+                    return self.listTypesOfDevices(ids).then(function(r2) {
+                        log_dbg(&quot;*********** [cache] listTypesOfDevices=&quot;,r2);
+                        self.listInterfacesOfTypes(r2).then(function (r3) {
+                            log_dbg(&quot;*********** 2 listInterfacesOfTypes=&quot;,r3);
+                            resolve(r3);
+                        });
+                    });
+                }
+            });
+        } else {
+            return new Promise(function(resolve,reject) {
+                return self.listTypesOfDevices(list).then(function(r2){
+                    log_dbg(&quot;************* [list] listTypesOfDevices=&quot;,r2);
+                    self.listInterfacesOfTypes(r2).then(function(r3){
+                        log_dbg(&quot;*********** 3 listInterfacesOfTypes=&quot;,r3);
+                        resolve(r3);
+                    });
+                }).catch(function(e){
+                    reject(e);
+                })
+            });
+        }
+    };
+
+
+    /**
+     * NOT IMPLEMENTED
+     * This uses dev$.forgetResource() to remove resources which are:
+     * - not in a location
+     * - not registered (and not reachable)
+     * These are usually devices deviceJS saw, but were never onboarded by a UI, and are now 
+     * no longer existant.
+     * @return {Promise} Fullfils on completion. Always fulfills unless deviceJS is down.
+     */
+    this.pruneUnplacedUnregisteredDevices = function() {
+        // TODO
+    }
+
+
+    var getPathComponents = function(s){
+        return s.split(&quot;/&quot;);
+    };
+
+
+    /**
+     * Moves a device from one resource group to another by stated paths. Places the device in the given resource group
+     * then removes the device from the other resouece group.
+     * @method  
+     * @param  {String} id       The device ID of the resource
+     * @param  {String} frompath The String path where the device should &#x27;moved&#x27; from.
+     * @param  {String} topath   The String path where the device should &#x27;moved&#x27; to.
+     * @return {Promise}          A Promise which fulfills when the entire operation is complete
+     */
+    this.moveDevice = function(id,frompath,topath) {
+        return devJS.joinResourceGroup(id,topath).then(function(){
+            return devJS.leaveResourceGroup(id,frompath);
+        });
+    };
+
+    /**
+     * This works just like the &#x27;mv&#x27; command in Unix. A new resource group is created, if it does not already exist. All devices are joined to
+     * this resource group, then devices are removed form the old resource group, then the empty resource group is removed. &#x27;sub resource groups&#x27;
+     * or &#x27;folders&#x27; (if looking at it using the file system metaphor) are supported, and the function will recursively handle them.
+     * @method  moveResourceGroup
+     * @param {String} from a path
+     * @param {String} to new path
+     * @param {Object} [graph]  Optional. results from dev$.getResourceGroup(&#x27;&#x27;) If not provided this will be pulled from
+     * cache in devJSUtils
+     */
+    this.moveResourceGroup = function(from,to,graph){
+        var graph = null;
+        var prefix = null; // used if the group already exists, and we need to move into that group
+
+        var verifySource = function(){
+            var src_path = getPathComponents(from);
+            var walk = graph;
+            var l = 0;
+            while(l &lt; src_path.length) {
+                if(walk.children &amp;&amp; walk.children[src_path[l]]) {
+                    walk = walk.children[src_path[l]];
+                    l++;
+                } else {
+                    break;
+                }
+            }
+            return (l == src_path.length);
+        };
+
+        var getGraph = function(){
+            if(graph) {
+                if(verifySource())
+                    return Promise.resolve();
+                else
+                    return Promise.reject(&#x27;from path non-existant&#x27;);
+            } else {
+                return new Promise(function(resolve,reject) {
+                    _self.getResourceTree().then(function (r) {
+                        graph = r;
+                        if (verifySource())
+                            return resolve();
+                        else
+                            return reject(&#x27;from path non-existant&#x27;);
+                    });
+                });
+            }
+        };
+
+
+        var createNewLocation = function(p){
+            return new Promise(function(resolve,reject){
+                var _path = to;
+                var walk = graph;
+                var walk_locs = getPathComponents(to);
+                var l = 0;
+                while(l &lt; walk_locs.length) {
+                    if(walk.children &amp;&amp; walk.children[walk_locs[l]]) {
+                        walk = walk.children[walk_locs[l]];
+                        l++;
+                    } else {
+                        break;
+                    }
+                }
+
+                if(l &gt;= walk_locs.length) {
+                    var src_path = getPathComponents(from);
+                    prefix = src_path[src_path.length-1];
+                    log_dbg(&quot;moveResourceGroup: its a copy &#x27;into&#x27;&quot;,prefix);
+                    _path = path.join(to,prefix);
+                }
+
+                devJS.createResourceGroup(_path).then(function(r){
+                    if(r.ok) {
+                        log_dbg(&quot;created location&quot;,_path);
+                        resolve();
+                    } else {
+                        reject(&#x27;no ok&#x27;);
+                    }
+                },function(e){
+                    log_err(&quot;Failed to create resource group:&quot;,to,e);
+                    reject(e);
+                })
+
+            });
+        };
+
+        var moveDevices = function(){
+            return new Promise(function(resolve,reject){
+                var proms = [];
+                var work = {};
+
+                var base_path = to;
+
+                var walk = graph;
+                var walk_locs = getPathComponents(from);
+                var l = 0;
+                while(l &lt; walk_locs.length) {
+                    if(walk.children &amp;&amp; walk.children[walk_locs[l]]) {
+                        walk = walk.children[walk_locs[l]];
+                        l++;
+                    } else {
+                        break;
+                    }
+                }
+
+                if(l &lt; walk_locs.length) {
+                    reject(&#x27;from path non-existant&#x27;);
+                    return;
+                }
+
+                var top = walk;
+
+                var process_leaf = function(basepath,walk) {
+//                    log.debug(&quot;top process_leaf&quot;,walk);
+                    if(walk &amp;&amp; walk.children) {
+                        var childnames = Object.keys(walk.children);
+                        for(var z=0;z&lt;childnames.length;z++) {
+                            var _path = path.join(basepath,childnames[z]);
+                            var _work = {
+                                path: _path,
+                                resources: walk.children[childnames[z]].resources
+                            };
+                            work[_path] = _work;
+
+                            (function(_path){
+                                var newpath = _path;
+                                log_dbg(&quot;createResourceGroup()&quot;,newpath);
+                                // NOTE: joinResourceGroup() will actually create the resource group
+                                // if it does not already exist yet. So we don&#x27;t have to chain these
+                                // sequentially
+                                proms.push(devJS.createResourceGroup(newpath));
+                                if(work[_path].resources) {
+                                    var resource_names = Object.keys(work[_path].resources);
+                                    for(var q=0;q&lt;resource_names.length;q++) {
+                                        log_dbg(&quot;joinResourceGroup()&quot;,resource_names[q],_path);
+                                        proms.push(devJS.joinResourceGroup(resource_names[q],newpath))
+                                    }
+                                }
+                            })(_path);
+
+
+                            process_leaf(_path,walk.children[childnames[z]]);
+                        }
+                    }
+                };
+
+                if(prefix) {
+                    base_path = path.join(base_path,prefix);
+                }
+
+                process_leaf(base_path,top);
+
+                Promise.all(proms).then(function(){
+                    // remove old resource group - will recursively delete them all
+                    devJS.deleteResourceGroup(from).then(function(){
+                        log_dbg(&quot;Removed old resource group (success):&quot;,from);
+                        resolve();
+                    },function(e){
+                        log_err(&quot;Removed old resource group:&quot;,e);
+                        reject(&#x27;delete-failed&#x27;);
+                    }).catch(function(e){
+                        log_err(&quot;@catch Removed old resource group:&quot;,e);
+                        reject(&#x27;delete-failed&#x27;);
+                    })
+                },function(e){
+                    log_err(&quot;Failure during createAndMove&quot;,e)
+                }).catch(function(e){
+                    log_err(&quot;@catch during createAndMove&quot;,e)
+                });
+            });
+        };
+
+        return getGraph()
+            .then(createNewLocation)
+            .then(moveDevices);
+    }
+
+
+};
+
+module.exports = {
+    instance: function(devJS,opts) {
+        return new devJSUtils(devJS,opts);
+    }
+};
+    </pre>
+</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="../assets/vendor/prettify/prettify-min.js"></script>
+<script>prettyPrint();</script>
+<script src="../assets/js/yui-prettify.js"></script>
+<script src="../assets/../api.js"></script>
+<script src="../assets/js/api-filter.js"></script>
+<script src="../assets/js/api-list.js"></script>
+<script src="../assets/js/api-search.js"></script>
+<script src="../assets/js/apidocs.js"></script>
+</body>
+</html>
