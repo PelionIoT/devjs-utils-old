@@ -12,18 +12,18 @@ var ON_log_dbg = function() {
     //var args = Array.prototype.slice.call(arguments);
     //args.unshift("WebDeviceSim");
     if(global.log)
-        log.debug.apply(undefined,arguments);
+        log.debug.apply(log,arguments);
     else
-        console.log.apply(undefined,arguments);
+        console.log.apply(console,arguments);
 };
 
 var log_err = function() {
     if(global.log)
-        log.error.apply(undefined,arguments);
+        log.error.apply(log,arguments);
     else {
         var args = Array.prototype.slice.call(arguments);
         args.unshift("ERROR");
-        console.error.apply(undefined,args);
+        console.error.apply(console,args);
     }
 
 };
@@ -31,11 +31,11 @@ var log_err = function() {
 
 var log_warn = function() {
     if(global.log)
-        log.warn.apply(undefined,arguments);
+        log.warn.apply(log,arguments);
     else {
         var args = Array.prototype.slice.call(arguments);
         args.unshift("WARN");
-        console.error.apply(undefined,args);
+        console.error.apply(console,args);
     }
 };
 
@@ -101,7 +101,6 @@ var devJSUtils = function(_devjs,opts) {
         devJS = _devjs;
     };
 
-    var callback_tables = {};  // event_name:orderedTable
     var _self = this;
     var TTL = 30000;  // 30 seconds
     var ListenTTL = 1000*60*10; // 10 minutes...
@@ -115,6 +114,9 @@ var devJSUtils = function(_devjs,opts) {
         if(opts.listener_timeout != undefined) ListenTTL = opts.listener_timeout;
         if(opts.debug_mode) {
             log_dbg = ON_log_dbg;
+        }
+        if(typeof opts.debug_console_func == 'function') {
+            log_dbg = opts.debug_console_func;
         }
         if(opts.set_cache) {
             cache = set_cache;
@@ -147,6 +149,305 @@ var devJSUtils = function(_devjs,opts) {
     var CACHE_UNPLACED_DEVICE_LIST = "$UNPLACED";
     var CACHE_WALK_GRAPH_ALL="all$walkGraph";
 
+    var callback_tables = {};  // event_name:orderedTable
+    var state_callback_tables = {};
+    var allstates_table = null;
+
+    this.clearListeners = function() {
+        var keyz = Object.keys(callback_tables);
+        for(var n=0;n<keyz.length;n++) {
+            if(callback_tables[keyz[n]].devjs_selection) {
+                callback_tables[keyz[n]].devjs_selection.removeAllListeners();
+//                callback_tables[keyz[n]].devjs_selection.unsubscribeFromEvent(callback_tables[keyz[n]].event_label);
+                callback_tables[keyz[n]].devjs_selection.unsubscribe(callback_tables[keyz[n]].subscribe_id);
+            }
+        }
+        callback_tables = {};  // event_name:orderedTable
+        keyz = Object.keys(state_callback_tables);
+        for(var n=0;n<keyz.length;n++) {
+            if(state_callback_tables[keyz[n]].devjs_selection) {
+                state_callback_tables[keyz[n]].devjs_selection.removeAllListeners();
+//                state_callback_tables[keyz[n]].devjs_selection.unsubscribeFromState(state_callback_tables[keyz[n]].event_label);
+                state_callback_tables[keyz[n]].devjs_selection.unsubscribe(state_callback_tables[keyz[n]].subscribe_id);                
+            }
+        }
+        state_callback_tables = {};  // event_name:orderedTable
+        if(allstates_table) {
+            if(allstates_table.devjs_selection) {
+                allstates_table.devjs_selection.removeAllListeners();
+//                allstates_table.devjs_selection.unsubscribeFromState('+');                
+                allstates_table.devjs_selection.unsubscribe(allstates_table.subscribe_id);                
+            }
+        }
+        allstates_table = null;
+    }
+
+
+
+    /**
+     * A convenient way to watch a device's state, and not have to track / manage listeners.
+     * This function provide a way to install a callback, which provide the same functionality of the following listener
+     * creation code using the pure `dev$` selector.
+     * ```
+     * var SEL = dev$.selectByID('WWFL00000Z');
+     * var id = SEL.subscribeToState('+');
+     * var listener = function(){console.warn("GOT IT",arguments);}
+     * SEL.on('state',listener);
+     * ```
+     * However, this method will provide the robustnesses of removing callbacks when their timer expires, not installing
+     * multiple callbacks which do the same thing.
+     * @method  listenToDeviceAllStates
+     * @param {String} id The device ID.
+     * @param {String} uniq A unique string of some sort.
+     * @param  {Function} callback   [description]
+     * @param  {Object|Number}   opts If a Number, it will be the `custom_ttl` value for this call back. After this TTL expire the callback
+     * is removed. If an Object it is of the format:
+     * ```
+     * {  
+     *    custom_ttl: 10000,    // a number in ms
+     *    ignore_cb_code: true  // if set, the callback code will not be looked at. This allows callbacks to replace each other, even if they are
+     *                          // different code, as long as this option is used throughout (default is false)
+     * }
+     * ``` 
+     * @example
+     * ```
+     * utils.listenToDeviceAllStates('WWFL000010','uniq',
+     *    function(){console.warn("CALLBACK(3) for WWFL000010",arguments);},
+     *    {custom_ttl:10000,ignore_cb_code:true} )
+     * // then, calling the below will *replace* the above listener. This listener will be removed in 10 seconds.
+     * utils.listenToDeviceAllStates('WWFL000010','uniq',
+     *    function(){console.warn("CALLBACK(4) for WWFL000010",arguments);},
+     *    {custom_ttl:10000,ignore_cb_code:true} )
+     * ```
+     * This will install two listeners, which will both fire when `hsl` changes. They will both be removed in 100 seconds:
+     * ```
+     * utils.listenToDeviceAllStates('WWFL000010','uniq',function(){console.warn("CALLBACK(2) for WWFL000010",arguments);},100000)
+     * utils.listenToDeviceAllsState('WWFL000010','uniq',function(){console.warn("CALLBACK(1) for WWFL000010",arguments);},100000)
+     * ```
+     * State change on `hsl` for device `WWFL000010` fires...
+     * ```
+     * CALLBACK(2) for WWFL000010 ["WWFL000010", "hsl", Object]
+     * CALLBACK(1) for WWFL000010 ["WWFL000010", "hsl", Object]
+     * ```
+     */
+    this.listenToDeviceAllStates = function(id,uniq,callback,opts) {
+    // TODO - implement state listening version
+        if(arguments.length < 4)
+            throw new Error("Invalid number of parameters");
+
+        var custom_ttl = undefined;
+        var ignore_cb_code = false;
+        if(typeof opts === 'number') custom_ttl = opts;
+        if(typeof opts === 'object') {
+            if(opts.custom_ttl) custom_ttl = opts.custom_ttl;
+            if(opts.ignore_cb_code) ignore_cb_code = true;
+        }
+        if(ignore_cb_code)
+            var cb_name = hash_callback(id,"",uniq,"");
+        else
+            var cb_name = hash_callback(id,"",uniq,callback);
+        if(!allstates_table) {
+            allstates_table = {
+                cache: new Cache(),  // used to track when you should remove a callback handler
+                table: new orderedTable(),
+                master_callback: null,
+                devjs_selection: null
+            };
+// CALLBACK_STATE ["WWFL00000Z", "brightness", 0.4]
+            allstates_table.master_callback = function (id, eventlabel) {
+                log_dbg("in state master_callback()",arguments);
+                // if (allstates_table.event_label == eventlabel) {
+                    log_dbg("got (master ..AllStates) event state:",eventlabel);
+                    var argz = arguments;
+                    allstates_table.table.forEach(function (val, tableid, order) {
+                        if (val && val.id == id) {
+                            if (typeof(val.cb) == 'function') {
+                                val.cb.apply(undefined, argz);
+                            } else {
+                                log_err("Bad entry as callback in devjsUtils.listenToDevice");
+                            }
+                        }
+                    });
+                // }
+            };
+
+            allstates_table.devjs_selection = devJS.select('id=*'); // this seems in efficient, but right now its better.
+                                // the devicejs engine does not deal well with many subscribers at the moment
+
+            // emitter_event_cb_count = table.devjs_selection._peer.listenerCount('event');
+            // emitter_event_cb_count++;
+
+            // FIXME see DVJS-456
+            allstates_table.devjs_selection._peer.setMaxListeners(emitter_event_cb_count + 10);
+            allstates_table.devjs_selection.setMaxListeners(emitter_event_cb_count + 10);
+            //}
+//            log_dbg("on() selection:"+'id="'+id+'"');
+            log_dbg("on() selection:" + 'id=*');
+//            table.devjs_selection.subscribeToEvent(event_name);
+//            table.devjs_selection.on('event', table.master_callback);
+            allstates_table.devjs_selection.on('state',allstates_table.master_callback);           
+
+            allstates_table.cache.on('del', function (key) {
+                log_dbg("delete key (callback cache timeout) [",key,"]");
+                allstates_table.table.remove(key);
+                if (allstates_table.cache.size() < 1) {
+                    // remove callback
+                    log_dbg("unsubscribe('"+"') FromState");
+//                    allstates_table.devjs_selection.unsubscribeFromState('+');
+                    allstates_table.devjs_selection.unsubscribe(allstates_table.subscribe_id);                    
+                }
+            });
+        }
+        //} else if(table.cache.size() < 1) {
+        //    // add listener / callback
+        //    table.devjs_selection = devJS.select('id="*"'); // this seems in efficient, but right now its better.
+        //                                                    // the devicejs enginer does not deal well with many subscribers at the moment
+        //    log_dbg("here1");
+        //    //table.devjs_selection.subscribeToEvent(event_name);
+        //}
+
+        allstates_table.subscribe_id = allstates_table.devjs_selection.subscribeToState('+'); //.then(function(){});
+
+        if(typeof custom_ttl == 'number')
+            allstates_table.cache.set(cb_name,cb_name,custom_ttl); // refresh or update cached
+        else
+            allstates_table.cache.set(cb_name,cb_name,ListenTTL); // refresh or update cached
+        var device_callback = {
+            cb: callback,
+            id: id
+        };
+        allstates_table.table.replaceAdd(cb_name,device_callback);   // add/re-add to table
+    };
+
+    /**
+     * A robust way to listen to a device's state, which eliminates the need to track and manage listeners in the runtime.
+     * @method  listentoDeviceState
+     * @param {String} id The device ID.
+     * @param {String} state_name The event name of interest. For example `"brightness"`
+     * @param {String} uniq A unique string of some sort.
+     * @param  {Function} callback   [description]
+     * @param  {Object|Number}   opts If a Number, it will be the `custom_ttl` value for this call back. After this TTL expire the callback
+     * is removed. If an Object it is of the format:
+     * ```
+     * {  
+     *    custom_ttl: 10000,    // a number in ms
+     *    ignore_cb_code: true  // if set, the callback code will not be looked at. This allows callbacks to replace each other, even if they are
+     *                          // different code, as long as this option is used throughout (default is false)
+     * }
+     * ``` 
+     * @example
+     * ```
+     * utils.listenToDeviceState('WWFL000010','hsl','uniq',
+     *    function(){console.warn("CALLBACK(3) for WWFL000010",arguments);},
+     *    {custom_ttl:10000,ignore_cb_code:true} )
+     * // then, calling the below will *replace* the above listener. This listener will be removed in 10 seconds.
+     * utils.listenToDeviceState('WWFL000010','hsl','uniq',
+     *    function(){console.warn("CALLBACK(4) for WWFL000010",arguments);},
+     *    {custom_ttl:10000,ignore_cb_code:true} )
+     * ```
+     * This will install two listeners, which will both fire when `hsl` changes. They will both be removed in 100 seconds:
+     * ```
+     * utils.listenToDeviceState('WWFL000010','hsl','uniq',function(){console.warn("CALLBACK(2) for WWFL000010",arguments);},100000)
+     * utils.listenToDeviceState('WWFL000010','hsl','uniq',function(){console.warn("CALLBACK(1) for WWFL000010",arguments);},100000)
+     * ```
+     * State change on `hsl` for device `WWFL000010` fires...
+     * ```
+     * CALLBACK(2) for WWFL000010 ["WWFL000010", "hsl", Object]
+     * CALLBACK(1) for WWFL000010 ["WWFL000010", "hsl", Object]
+     * ```
+     */
+    this.listenToDeviceState = function(id,state_name,uniq,callback,opts) {
+    // TODO - implement state listening version
+        if(arguments.length < 4)
+            throw new Error("Invalid number of parameters");
+
+        var custom_ttl = undefined;
+        var ignore_cb_code = false;
+        if(typeof opts === 'number') custom_ttl = opts;
+        if(typeof opts === 'object') {
+            if(opts.custom_ttl) custom_ttl = opts.custom_ttl;
+            if(opts.ignore_cb_code) ignore_cb_code = true;
+        }
+        if(ignore_cb_code)
+            var cb_name = hash_callback(id,state_name,uniq,"");
+        else
+            var cb_name = hash_callback(id,state_name,uniq,callback);
+        var table_name = state_name;
+        var table = state_callback_tables[table_name];
+        if(!table) {
+            table = state_callback_tables[table_name] = {
+                cache: new Cache(),  // used to track when you should remove a callback handler
+                table: new orderedTable(),
+                master_callback: null,
+                event_label: state_name,
+                devjs_selection: null
+            };
+// CALLBACK_STATE ["WWFL00000Z", "brightness", 0.4]
+            table.master_callback = function (id, eventlabel) {
+                log_dbg("in state master_callback()",arguments);
+                if (table.event_label == eventlabel) {
+                    log_dbg("got associated event state:",eventlabel);
+                    var argz = arguments;
+                    table.table.forEach(function (val, tableid, order) {
+                        if (val && val.id == id) {
+                            if (typeof(val.cb) == 'function') {
+                                val.cb.apply(undefined, argz);
+                            } else {
+                                log_err("Bad entry as callback in devjsUtils.listenToDevice");
+                            }
+                        }
+                    });
+                }
+            };
+
+            table.devjs_selection = devJS.select('id=*'); // this seems in efficient, but right now its better.
+                                // the devicejs engine does not deal well with many subscribers at the moment
+
+            // emitter_event_cb_count = table.devjs_selection._peer.listenerCount('event');
+            // emitter_event_cb_count++;
+
+            // FIXME see DVJS-456
+            table.devjs_selection._peer.setMaxListeners(emitter_event_cb_count + 10);
+            table.devjs_selection.setMaxListeners(emitter_event_cb_count + 10);
+            //}
+//            log_dbg("on() selection:"+'id="'+id+'"');
+            log_dbg("on() selection:" + 'id=*');
+//            table.devjs_selection.subscribeToEvent(event_name);
+//            table.devjs_selection.on('event', table.master_callback);
+            table.devjs_selection.on('state',table.master_callback);           
+
+            table.cache.on('del', function (key) {
+                log_dbg("delete key (callback cache timeout) [",key,"]");
+                table.table.remove(key);
+                if (table.cache.size() < 1) {
+                    // remove callback
+                    log_dbg("unsubscribeFromState('",table.event_label,"'");
+                    table.devjs_selection.unsubscribeFromState(table.event_label);
+                }
+            });
+        }
+        //} else if(table.cache.size() < 1) {
+        //    // add listener / callback
+        //    table.devjs_selection = devJS.select('id="*"'); // this seems in efficient, but right now its better.
+        //                                                    // the devicejs enginer does not deal well with many subscribers at the moment
+        //    log_dbg("here1");
+        //    //table.devjs_selection.subscribeToEvent(event_name);
+        //}
+
+        table.subscribe_id = table.devjs_selection.subscribeToState(state_name); //.then(function(){});
+
+        if(typeof custom_ttl == 'number')
+            table.cache.set(cb_name,cb_name,custom_ttl); // refresh or update cached
+        else
+            table.cache.set(cb_name,cb_name,ListenTTL); // refresh or update cached
+        var device_callback = {
+            cb: callback,
+            id: id
+        };
+        table.table.replaceAdd(cb_name,device_callback);   // add/re-add to table
+    };
+
+
     /**
      * Handles the details of setting up a listener for a device event, with a callback. The callback will fire for `event_name`
      * for up to the default TTL or `custom_ttl`. After this, the callback will be purged. If there are no callback assigned for
@@ -160,11 +461,25 @@ var devJSUtils = function(_devjs,opts) {
      * then calls the needed callbacks based on the event.
      *
      * @method listenToDevice
+     * @example
+     * ```
+     * devJSUtil.listenToDevice(id, 
+     *     'unreachable',    // the event name of concern
+     *     'sidebar',        // a unique identifier for the callback, so it's not inserted or called twice
+     *     function (dev, id) {
+     *         dev.reachable = false;
+     *         dev.status = 'deactivated';
+     *         console.log("device is unreachable",id);
+     *     },
+     *     30000  // callback will go away in 30 seconds (optional)
+     * );
+     * ```
      * @param {String} id The device ID.
      * @param {String} event_name The event name of interest. For example `"unreachable"`
      * @param {String} uniq A unique string of some sort.
      * @param {Function} callback The callback to be called.
-     * @param {Number} [custom_ttl] A number in milliseconds to timeout the callback. If not stated a default is used.
+     * @param {Number} [custom_ttl] A number in milliseconds to timeout the callback. After the timeout the callback is 
+     * automatically removed. If not stated a default is used.
      */
     this.listenToDevice = function(id,event_name,uniq,callback,custom_ttl) {
         if(arguments.length < 4)
@@ -215,7 +530,7 @@ var devJSUtils = function(_devjs,opts) {
             //}
 //            log_dbg("on() selection:"+'id="'+id+'"');
             log_dbg("on() selection:" + 'id=*');
-            table.devjs_selection.subscribeToEvent(event_name);
+            table.subscribe_id = table.devjs_selection.subscribeToEvent(event_name);
             table.devjs_selection.on('event', table.master_callback);
 
             table.cache.on('del', function (key) {
@@ -739,7 +1054,7 @@ var devJSUtils = function(_devjs,opts) {
      *    }
      * }
      * ```
-     * @returns {Promise} resolves with said object
+     * @return {Promise} resolves with said object
      */
     this.getHierarchy = function() {
         return new Promise(function(resolve,reject) {
@@ -841,7 +1156,7 @@ var devJSUtils = function(_devjs,opts) {
      * from a given list of device IDs. If a device ID is not known by deviceJS it is reported `null`
      * @method  listDeviceStatus
      * @param {Array|device ID} list List of device IDs to provide status, as an `Array` of `String`
-     * @returns {Promise} which will resolve to the given list
+     * @return {Promise} which will resolve to the given list
      */
     this.listDeviceStatus = function(list) {
         if(!Array.isArray(list)) {
@@ -1056,7 +1371,7 @@ var devJSUtils = function(_devjs,opts) {
     /**
      * Lists all resource types know about by deviceJS
      * @method listResourceTypes
-     * @returns {Promise} which will resolve to the given list
+     * @return {Promise} which will resolve to the given list
      */
     this.listResourceTypes = function() {
         return new Promise(function(resolve,reject) {
@@ -1228,6 +1543,7 @@ var devJSUtils = function(_devjs,opts) {
      * @param {String} to new path
      * @param {Object} [graph]  Optional. results from dev$.getResourceGroup('') If not provided this will be pulled from
      * cache in devJSUtils
+     * @return {Promise} which fulfills when the move is complete.
      */
     this.moveResourceGroup = function(from,to,graph){
         var graph = null;
