@@ -536,6 +536,51 @@ Use with caution folks. Erases all alias data.
 
 **Returns**: _[type]_ - [description]
 
+###findAllAliases
+
+This returns all aliases / device ID pairs, which match a particular pattern
+of an alias. That pattern is represented as a regex. If a function is provided,
+then that function is called every time a match is found.
+
+**Returns**: _Promise_ - A Promise which fulfills with an object that is a map
+of all matches. Each key is an alias, each value is the device ID. If no matches
+are found, an empty object is returned.
+
+**Params**:  
+*   regex _Regex_
+
+    Regex to match against
+*   func _Function_
+
+    options function to call on each match
+
+####Example
+
+```
+   utils.deviceAlias('RUNNER','internal_1')
+   utils.deviceAlias('Rules','internal_2')
+
+   // then, after above calls complete (they asynchronous and return promises)
+   
+   var foundsome = function(alias,id){
+       console.log("Alias found:",alias,id);
+   }
+   utils.findAllAliases(/internal_.*$/,foundsome).then(function(map){
+       console.log("map:",map);
+       var aliases = Object.keys(map);
+       assert(aliases.length, CHEESE_NUMS);
+   })
+```
+Output
+```
+   Alias found: internal_1 RUNNER
+   Alias found: internal_2 Rules
+   maps: { RUNNER: 'internal_1'
+       Rules: 'internal_2'
+   }
+```
+
+
 ###selectByAlias
 
 This returns the equivalent of using dev$.selectByID(id), if selecting
