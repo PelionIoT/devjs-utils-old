@@ -1,5 +1,6 @@
 /**
  * Created by ed on 11/6/15.
+ * Updated 2/7/2017
  */
 var Cache = require('js-cache');
 var Promise = require('es6-promise').Promise;
@@ -80,8 +81,11 @@ var get_paths = function(s) {
  * @class  deviceJSUtils
  * @constructor
  * @param  {Object} _devjs A deviceJS instance. typically `dev$`
+ * @params {object} [_devdb] A devicedb instance
  * @param  {Object} [opts]  An options object
  * @example
+ * The constructor takes the form devJSUtils(_devjs,_devdb,opts) or
+ * devJSUtils(_devjs,opts)
  * ```
  * var utils = require("devjs-utils").instance(dev$);
  * console.log("Getting heiarchy");
@@ -92,13 +96,18 @@ var get_paths = function(s) {
  * });
  * ``` 
  */
-var devJSUtils = function(_devjs,opts) {
+var devJSUtils = function(_devjs,_devdb,opts) {
     var cache = null;
 
     var devJS = _devjs;
+    var ddb = null;
 
     this.assignDevJS = function(_devjs) {
         devJS = _devjs;
+    };
+
+    this.assignDevicedb = function(_devdb) {
+        ddb = _devdb;
     };
 
     var _self = this;
@@ -108,6 +117,13 @@ var devJSUtils = function(_devjs,opts) {
     var log_dbg = function() {
 
     };
+
+    // opts was not defined, then maybe it was the second parameter
+    if(opts === undefined) {
+        opts = _devdb;
+    } else {
+        ddb = _devdb;
+    }
 
     if(opts) {
         if(opts.default_timeout != undefined) TTL = opts.default_timeout;
@@ -1712,11 +1728,210 @@ var devJSUtils = function(_devjs,opts) {
             .then(moveDevices);
     }
 
+    // Alias commands
+    // 
+    
+    var DDB_ALIAS_PREFIX = "devjsUtils.alias.";
+    var DDB_ALIAS_BYID_PREFIX = "devjsUtils.aliasById.";
+
+    var DEFAULT_ALIAS_CACHE_TIMEOUT = 30000; // 30 seconds
+
+    var cached_id_to_alias = new Cache();
+    var cached_alias_to_id = new Cache();      
+
+    var lookupAliasByIdDDB = function(devid) {
+        var cached = cached_id_to_alias.get(devid);
+        if(cached) {
+            console.log("CACHE HIT")
+            return Promise.resolve(cached);
+        } else
+            return ddb.shared.get(DDB_ALIAS_BYID_PREFIX+devid).then(function(val){
+                if(val && typeof val == 'object') {
+                    if(val.siblings && val.siblings.length < 1)
+                        return null; // no data
+                    var alias = (val.value) ? val.value : val.siblings[0];
+                    cached_alias_to_id.set(alias,devid,DEFAULT_ALIAS_CACHE_TIMEOUT);
+                    cached_id_to_alias.set(devid,alias,DEFAULT_ALIAS_CACHE_TIMEOUT);                
+                    return devid;
+                } else {
+                    return null;
+                }
+            });
+    }
+
+
+    var lookupIdByAliasDDB = function(alias) {
+        var cached = cached_alias_to_id.get(alias);
+        if(cached) {
+            return Promise.resolve(cached);
+        } else {
+            return ddb.shared.get(DDB_ALIAS_PREFIX+alias).then(function(val){
+                console.log("after get")
+                if(val && typeof val == 'object') {
+                    if(val.siblings && val.siblings.length < 1)
+                        return null; // no data
+                    var devid = (val.value) ? val.value : val.siblings[0];
+                    cached_alias_to_id.set(alias,devid,DEFAULT_ALIAS_CACHE_TIMEOUT);
+                    cached_id_to_alias.set(devid,alias,DEFAULT_ALIAS_CACHE_TIMEOUT);                
+                    return devid;
+                } else {
+                    return null;
+                }
+            });            
+        }
+    }
+
+    var setAliasDDB = function(devid,alias) {
+        var context = undefined;
+        var inner_setAliasDDB = function() {
+            var proms = [];
+
+            proms.push(ddb.shared.put(DDB_ALIAS_PREFIX+alias,devid)); // set in both maps
+            proms.push(ddb.shared.put(DDB_ALIAS_BYID_PREFIX+devid,alias));
+            return Promise.all(proms).then(function(){
+                // now place in cache maps                
+                cached_alias_to_id.set(alias,devid,DEFAULT_ALIAS_CACHE_TIMEOUT);
+                cached_id_to_alias.set(devid,alias,DEFAULT_ALIAS_CACHE_TIMEOUT);                
+            },function(err){
+                throw new Error("devjsUtils: setAliasDDB failed on ddb.shared.put()" + util.inspect(err));
+            });
+
+            //     });
+            // },function(err){
+            //     throw new Error("devjsUtils: setAliasDDB failed on ddb.shared.put()" + util.inspect(err));
+            // })            
+        }
+
+        return ddb.shared.get(DDB_ALIAS_PREFIX+alias).then(function(val){
+            var proms = [];
+            if(val == null) {
+                return inner_setAliasDDB();
+            } else {
+                // if already was there, we need to remove cross-references
+                // invalidate alias
+                context = val.context;
+                cached_alias_to_id.del(alias);
+                for(var n=0;n<val.siblings.length;n++) {
+                    // invalidate each ID
+                    cached_id_to_alias.del(val.siblings[n]);
+                    // and remove ddb entry
+                    proms.push(ddb.shared.delete(DDB_ALIAS_PREFIX+val.siblings[n],context)); // delete the entry in the reverse map
+                }
+                return Promise.all(proms).then(inner_setAliasDDB);
+            }
+        });
+    }
+
+    /**
+     * Sets or gets a device alias. If a 'newname' is provided, the method will 
+     * set the alias name for a specific device ID. Device IDs may only have one alias
+     * using this routine.
+     * @param  {[type]} devid   [description]
+     * @param  {[type]} newname [description]
+     * @return {[type]}         [description]
+     */
+    this.deviceAlias = function(devid,newname) {
+        if(ddb) {
+            // set alias name
+            if(newname) {
+                if(typeof newname == 'string') {
+                    return setAliasDDB(devid,newname);
+                } else {
+                    throw new Error("devJSUtils: Invalid Parameter");
+                }
+            } else {
+            // get alias name 
+                return lookupAliasByIdDDB(devid)
+            }
+        } else {
+            throw "No ddb selector provided.";
+        }   
+    }
+
+    /**
+     * Returns a device ID given an alias
+     * @param  {[type]} alias [description]
+     * @return {[type]}       [description]
+     */
+    this.getIdByAlias = function(alias) {
+        return lookupIdByAliasDDB(alias)
+    }
+
+    /**
+     * Use with caution folks. Erases all alias data.
+     * @return {[type]} [description]
+     */
+    this.removeAllAliases = function() {
+        var proms = [];
+        var next = function(err,result) {
+            // if(err) {
+            //     console.error("Error on next()",err);
+            // } else
+            // console.log("result:",result);
+            if(!err) {
+                proms.push(ddb.shared.delete(result.key,result.context));
+//                proms.push(ddb.shared.delete(result.key));
+            }
+        }
+
+        proms.push(ddb.shared.getMatches(DDB_ALIAS_PREFIX,next))
+        proms.push(ddb.shared.getMatches(DDB_ALIAS_BYID_PREFIX,next))
+        return Promise.all(proms).then(function(){
+            cached_alias_to_id.clear();
+            cached_id_to_alias.clear();
+            console.log("CLEARED")
+        });
+    }
+
+
+    /**
+     * This returns all aliases / device ID pairs, which match a particular pattern
+     * of an alias. That pattern is represented as a regex. If a function is provided,
+     * then that function is called every time a match is found. 
+     * @param  {Regex} regex Regex to match against
+     * @param  {function} func  options function to call on each match
+     * @return {Promise}       A Promise which fulfills with an object that is a map
+     * of all matches. Each key is an alias, each value is the device ID. If no matches
+     * are found, an empty object is returned.
+     */
+    this.findAllAliases = function(regex, func) {
+        var proms = [];
+        var map = {};
+
+        if(!regex || typeof regex.exec != 'function') {
+            throw new TypeError("a Regex is required as first param.");
+        }
+
+        var next = function(err,result) {
+            if(!err) {
+                var alias = result.key.split(result.prefix);
+                var m = regex.exec(alias[1]);
+                if(m && m.length > 0) {
+                    if(typeof func == 'function') {
+                        var ctx = { match: m }
+                        func.call(ctx,alias[1],result.siblings[0]);
+                    }
+                    map[alias[1]] = result.siblings[0];
+                }
+            }
+        }
+
+
+        proms.push(ddb.shared.getMatches(DDB_ALIAS_PREFIX,next));
+
+        return Promise.all(proms).then(function(){
+            return map;
+        });
+
+    }
 
 };
 
 module.exports = {
-    instance: function(devJS,opts) {
-        return new devJSUtils(devJS,opts);
+    // instance: function(devJS,opts) {
+    //     return new devJSUtils(devJS,opts);
+    // }
+    instance: function(one,two,three) {
+        return new devJSUtils(one,two,three);
     }
 };
