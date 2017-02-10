@@ -1958,13 +1958,18 @@ var devJSUtils = function(_devjs,_devdb,opts) {
         if(devJS) {
             var sel_str = "";
             if(typeof regex == 'string') {
-                var s = getIdByAlias(regex);
-                if(s){
-                    s = 'id="'+s+'"';
-                    return devJS.select(s);
-                } else {
-                    return devJS.select(); // just return empty selection
-                }
+                var s = lookupIdByAliasDDB(regex);
+                return s.then(function(devid){
+                    console.log("HEY",devid)
+                    if(devid) {
+                        var sel_str = 'id="'+devid+'"';
+                        log_dbg("selectByAlias() - selection str:",sel_str)
+                        return devJS.select(sel_str);
+                    } else {
+                        return devJS.select(); // just return empty selection
+                    }
+
+                })
             } else {
                 return this.findAllAliases(regex).then(function(map){
                     var keys = Object.keys(map);

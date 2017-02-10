@@ -47,7 +47,7 @@ var closeAssertionFailure = function(err,description) {
 
 var assertPromise = function(thenable,assertfunc,description){
 	assertions++;
-	totalProms.push(
+	var ret = 
 	thenable.then(function(r){
 		var THIS = {}
 		if(assertfunc)
@@ -64,12 +64,13 @@ var assertPromise = function(thenable,assertfunc,description){
 		console.error(s);
 		closeAssertionFailure("Failed",description)
 	})
-	)
+	totalProms.push(ret);
+	return ret;
 }
 
 var assertPromiseReject = function(thenable,assertfunc){
 	assertions++;
-	totalProms.push(
+	var ret = 
 	thenable.then(function(r){
 		var s = "Failure at assertPromise. Was resolved (should be reject). Args:" + util.inspect(arguments);
 		if(err && err.stack) s += " --> "+err.stack;
@@ -85,7 +86,8 @@ var assertPromiseReject = function(thenable,assertfunc){
 		console.error(s);
 		closeAssertionFailure("Failed",description)
 	})
-	)
+	totalProms.push(ret)
+	return ret
 }
 
 var DDB_ALIAS_PREFIX = "devjsUtils.alias.";
@@ -166,7 +168,7 @@ testit("test deviceAlias() set/lookup",function(){
 			// test with some 'internal' devices which are always in deviceJS
 			proms.push(utils.deviceAlias('RUNNER','internal_1'));
 			proms.push(utils.deviceAlias('Rules','internal_2'));
-			assertPromise(
+			return assertPromise(
 			Promise.all(proms).then(function(){
 				return utils.selectByAlias(/internal.*$/).then(function(sel){
 					assertPromise(sel.listResources().then(function(res){
@@ -178,6 +180,17 @@ testit("test deviceAlias() set/lookup",function(){
 			})
 			)
 			
+		}).then(function(){
+			console.log("HERE HERE")
+			assertPromise(
+			utils.selectByAlias('internal_1').then((sel) => {
+				assertPromise(sel.listResources().then((result) => {
+					console.log("select by string:",result)
+					assert('object',typeof result.RUNNER)
+				})
+				)
+			})
+			)
 		})
 
 	})
