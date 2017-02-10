@@ -1911,7 +1911,7 @@ var devJSUtils = function(_devjs,_devdb,opts) {
                         var ctx = { match: m }
                         func.call(ctx,alias[1],result.siblings[0]);
                     }
-                    map[alias[1]] = result.siblings[0];
+                    map[result.siblings[0]] = alias[1];
                 }
             }
         }
@@ -1922,6 +1922,15 @@ var devJSUtils = function(_devjs,_devdb,opts) {
         return Promise.all(proms).then(function(){
             return map;
         });
+
+    }
+
+    /**
+     * This returns the equivalent of using dev$.selectByID(id), if selecting
+     * on or more devices, but by alias instead. Of a selecto 
+     * @return {Regex|String} A regex or a string
+     */
+    this.selectByAlias = function(regex){
 
     }
 
