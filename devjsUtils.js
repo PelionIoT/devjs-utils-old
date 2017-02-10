@@ -1928,10 +1928,37 @@ var devJSUtils = function(_devjs,_devdb,opts) {
     /**
      * This returns the equivalent of using dev$.selectByID(id), if selecting
      * on or more devices, but by alias instead. Of a selecto 
-     * @return {Regex|String} A regex or a string
+     * @param {Regex|String} regex A regex or a string
+     * @return {Promise} returns a Promise which fulfills with the selection, which would be the same as the 
+     * result of a call to dev$('id=XYZ') if the parameter passed used an alias which mapped to device ID 'XYZ'.
      */
     this.selectByAlias = function(regex){
-
+        if(devJS) {
+            var sel_str = "";
+            if(typeof regex == 'string') {
+                var s = getIdByAlias(regex);
+                if(s){
+                    s = 'id="'+s+'"';
+                    return devJS.select(s);
+                } else {
+                    return devJS.select(); // just return empty selection
+                }
+            } else {
+                return this.findAllAliases(regex).then(function(map){
+                    var keys = Object.keys(map);
+                    if(keys.length > 0) {
+                        sel_str = 'id="'+keys[0]+'" '
+                        for(var n=1;n<keys.length;n++) {
+                            sel_str += 'or id="'+keys[n]+'" '
+                        }
+                    }
+                    log_dbg("selectByAlias() - selection str:",sel_str)
+                    return devJS.select(sel_str);
+                });
+            }
+        } else {
+            throw new Error("No dev$ selector assigned.")
+        }
     }
 
 };
