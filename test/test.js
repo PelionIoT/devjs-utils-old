@@ -168,7 +168,7 @@ testit("test deviceAlias() set/lookup",function(){
 			proms.push(utils.deviceAlias('Rules','internal_2'));
 			assertPromise(
 			Promise.all(proms).then(function(){
-				return utils.selectByAlias(/internal.*/).then(function(sel){
+				return utils.selectByAlias(/internal.*$/).then(function(sel){
 					assertPromise(sel.listResources().then(function(res){
 						console.log("Select by regex:",res);
 						assert('object',typeof res.RUNNER)

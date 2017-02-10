@@ -1158,7 +1158,8 @@ var devJSUtils = function(_devjs,_devdb,opts) {
 
     /**
      * Build a list of the format 
-     * ```[{ 'IDabc' : { 
+     * ``` 
+     *    [{ 'IDabc' : { 
      *         registered: true, 
      *         reachable: false, 
      *         [ other data... ] 
@@ -1826,6 +1827,7 @@ var devJSUtils = function(_devjs,_devdb,opts) {
      * Sets or gets a device alias. If a 'newname' is provided, the method will 
      * set the alias name for a specific device ID. Device IDs may only have one alias
      * using this routine.
+     * @method deviceAlias
      * @param  {[type]} devid   [description]
      * @param  {[type]} newname [description]
      * @return {[type]}         [description]
@@ -1850,6 +1852,7 @@ var devJSUtils = function(_devjs,_devdb,opts) {
 
     /**
      * Returns a device ID given an alias
+     * @method  getIdByAlias
      * @param  {[type]} alias [description]
      * @return {[type]}       [description]
      */
@@ -1859,6 +1862,7 @@ var devJSUtils = function(_devjs,_devdb,opts) {
 
     /**
      * Use with caution folks. Erases all alias data.
+     * @method removeAllAliases
      * @return {[type]} [description]
      */
     this.removeAllAliases = function() {
@@ -1888,6 +1892,7 @@ var devJSUtils = function(_devjs,_devdb,opts) {
      * This returns all aliases / device ID pairs, which match a particular pattern
      * of an alias. That pattern is represented as a regex. If a function is provided,
      * then that function is called every time a match is found. 
+     * @method findAllAliases
      * @param  {Regex} regex Regex to match against
      * @param  {function} func  options function to call on each match
      * @return {Promise}       A Promise which fulfills with an object that is a map
@@ -1927,10 +1932,27 @@ var devJSUtils = function(_devjs,_devdb,opts) {
 
     /**
      * This returns the equivalent of using dev$.selectByID(id), if selecting
-     * on or more devices, but by alias instead. Of a selecto 
+     * one or more devices, but by alias instead.
+     * @method selectByAlias
      * @param {Regex|String} regex A regex or a string
      * @return {Promise} returns a Promise which fulfills with the selection, which would be the same as the 
      * result of a call to dev$('id=XYZ') if the parameter passed used an alias which mapped to device ID 'XYZ'.
+     * @example
+     * ```
+     *    utils.deviceAlias('RUNNER','internal_1')
+     *    utils.deviceAlias('Rules','internal_2')
+     *    //
+     *    // then later (bear in mind deviceAlias commands don't finish until their
+     *    // Promise fulfills) ...
+     *    //
+     *    utils.selectByAlias(/internal.*$/).then(function(sel){
+     *       sel.listResources().then(function(res){
+     *           console.log("Select by regex:",res);
+     *           assert('object',typeof res.RUNNER)
+     *           assert('object',typeof res.Rules)
+     *       });
+     *    })
+     * ```
      */
     this.selectByAlias = function(regex){
         if(devJS) {

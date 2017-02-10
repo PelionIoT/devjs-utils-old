@@ -378,7 +378,8 @@ Returns an Array of all device names. This will used cache if available.
 ###listDeviceStatus
 
 Build a list of the format 
-```[{ 'IDabc' : { 
+``` 
+   [{ 'IDabc' : { 
         registered: true, 
         reachable: false, 
         [ other data... ] 
@@ -499,4 +500,70 @@ or 'folders' (if looking at it using the file system metaphor) are supported, an
     Optional. results from dev$.getResourceGroup('') If not provided this will be pulled from
 cache in devJSUtils
 
+
+###deviceAlias
+
+Sets or gets a device alias. If a 'newname' is provided, the method will 
+set the alias name for a specific device ID. Device IDs may only have one alias
+using this routine.
+
+**Returns**: _[type]_ - [description]
+
+**Params**:  
+*   devid _[type]_
+
+    [description]
+*   newname _[type]_
+
+    [description]
+
+
+###getIdByAlias
+
+Returns a device ID given an alias
+
+**Returns**: _[type]_ - [description]
+
+**Params**:  
+*   alias _[type]_
+
+    [description]
+
+
+###removeAllAliases
+
+Use with caution folks. Erases all alias data.
+
+**Returns**: _[type]_ - [description]
+
+###selectByAlias
+
+This returns the equivalent of using dev$.selectByID(id), if selecting
+one or more devices, but by alias instead.
+
+**Returns**: _Promise_ - returns a Promise which fulfills with the selection, which would be the same as the 
+result of a call to dev$('id=XYZ') if the parameter passed used an alias which mapped to device ID 'XYZ'.
+
+**Params**:  
+*   regex _Regex|String_
+
+    A regex or a string
+
+####Example
+
+```
+   utils.deviceAlias('RUNNER','internal_1')
+   utils.deviceAlias('Rules','internal_2')
+   //
+   // then later (bear in mind deviceAlias commands don't finish until their
+   // Promise fulfills) ...
+   //
+   utils.selectByAlias(/internal.*$/).then(function(sel){
+      sel.listResources().then(function(res){
+          console.log("Select by regex:",res);
+          assert('object',typeof res.RUNNER)
+          assert('object',typeof res.Rules)
+      });
+   })
+```
 
