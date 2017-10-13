@@ -1,8 +1,8 @@
-#deviceJSUtils
+# deviceJSUtils
 
 
 
-####Example
+#### Example
 
 The constructor takes the form devJSUtils(_devjs,_devdb,opts) or
 devJSUtils(_devjs,opts)
@@ -16,9 +16,9 @@ var ans = utils.getHierarchy().then(function(ans){
 });
 ``` 
 
-##Methods
+## Methods
 
-###listenToDeviceAllStates
+### listenToDeviceAllStates
 
 A convenient way to watch a device's state, and not have to track / manage listeners.
 This function provide a way to install a callback, which provide the same functionality of the following listener
@@ -54,7 +54,7 @@ is removed. If an Object it is of the format:
 }
 ```
 
-####Example
+#### Example
 
 ```
 utils.listenToDeviceAllStates('WWFL000010','uniq',
@@ -76,7 +76,7 @@ CALLBACK(2) for WWFL000010 ["WWFL000010", "hsl", Object]
 CALLBACK(1) for WWFL000010 ["WWFL000010", "hsl", Object]
 ```
 
-###listentoDeviceState
+### listentoDeviceState
 
 A robust way to listen to a device's state, which eliminates the need to track and manage listeners in the runtime.
 
@@ -105,7 +105,7 @@ is removed. If an Object it is of the format:
 }
 ```
 
-####Example
+#### Example
 
 ```
 utils.listenToDeviceState('WWFL000010','hsl','uniq',
@@ -127,7 +127,7 @@ CALLBACK(2) for WWFL000010 ["WWFL000010", "hsl", Object]
 CALLBACK(1) for WWFL000010 ["WWFL000010", "hsl", Object]
 ```
 
-###listenToDevice
+### listenToDevice
 
 Handles the details of setting up a listener for a device event, with a callback. The callback will fire for `event_name`
 for up to the default TTL or `custom_ttl`. After this, the callback will be purged. If there are no callback assigned for
@@ -158,7 +158,7 @@ then calls the needed callbacks based on the event.
     A number in milliseconds to timeout the callback. After the timeout the callback is 
 automatically removed. If not stated a default is used.
 
-####Example
+#### Example
 
 ```
 devJSUtil.listenToDevice(id, 
@@ -173,7 +173,7 @@ devJSUtil.listenToDevice(id,
 );
 ```
 
-###preloadDeviceStatus
+### preloadDeviceStatus
 
 This asks deviceJS for all devices. It then stores all this as cache, so that if you ask for individual
 devices, their status is already there. This is to speed up initial load of a web interface or mobile UI
@@ -182,16 +182,16 @@ out of the task of dealing with this.
 
 This is not a cached call. It will overwrite all cached data. Always fulfills
 
-###invalidateGraph
+### invalidateGraph
 
 Invalidates devjs-utils internal graph, so that the next time a call is used
 which needs the graph, it will be pulled again from the deviceJS runtime.
 
-###invalidateResources
+### invalidateResources
 
 Invalidates the devjs-utils internal cache for resources.
 
-###filterDeviceListByInterfaceRegex
+### filterDeviceListByInterfaceRegex
 
 given an array of device IDs, this will show only device IDs which have an interface for their
 type which match a given regex
@@ -207,7 +207,7 @@ that have a matching interface for the given filter
 
     A RegExp for filtering
 
-####Example
+#### Example
 
 ```
    dev$UtilsDEBUG.filterDeviceListByInterfaceRegex(['0017880a7876-1','LIFXd073d502b6ef','TunnelMonitor'],/Facades/)
@@ -220,7 +220,7 @@ might return a Promise which fulfills with:
       }
 ```
 
-###getHierarchy
+### getHierarchy
 
 A utility to get the device heirarchy already flattened and parsed.
 Provides the device hierarchy in three ways in an object which resolves as a complex object.
@@ -357,25 +357,25 @@ might return
 }
 ```
 
-###listUnplacedDevices
+### listUnplacedDevices
 
 Return a Promise which fulfills with a list of devices which are not in any resource groups.
 
 **Returns**: _Promise_ - Promise which fulfills with above object
 
-###listPlacedDevices
+### listPlacedDevices
 
 Return a Promise which fulfills with a list of devices which are in at least one resource group.
 
 **Returns**: _Promise_ - Promise which fulfills with above object
 
-###listAllDevices
+## #listAllDevices
 
 Returns an Array of all device names. This will used cache if available.
 
 **Returns**: _Promise_ - Promise which fulfills with above object
 
-###listDeviceStatus
+### listDeviceStatus
 
 Build a list of the format 
 ``` 
@@ -400,7 +400,7 @@ from a given list of device IDs. If a device ID is not known by deviceJS it is r
     List of device IDs to provide status, as an `Array` of `String`
 
 
-###listExcludedResourceIDs
+### listExcludedResourceIDs
 
 returns a list of devices which are accounted for by deviceJS but are not in the given
 Array of device IDs. The collection should be keyed by resource ID.
@@ -431,7 +431,7 @@ Get a list of types from a list of devices
     A string or Array of device IDs
 
 
-###listResourceTypes
+### listResourceTypes
 
 Lists all resource types know about by deviceJS
 
@@ -449,7 +449,7 @@ Get a list of interfaces from a list of resource types.
     A string or Array of device IDs
 
 
-###listInterfacesOfDevices
+### listInterfacesOfDevices
 
 Get a list of interfaces a device implements
 
@@ -461,7 +461,7 @@ Get a list of interfaces a device implements
     A string or Array of device IDs
 
 
-###moveDevice
+### moveDevice
 
 Moves a device from one resource group to another by stated paths. Places the device in the given resource group
 then removes the device from the other resouece group.
@@ -480,7 +480,7 @@ then removes the device from the other resouece group.
     The String path where the device should 'moved' to.
 
 
-###moveResourceGroup
+### moveResourceGroup
 
 This works just like the 'mv' command in Unix. A new resource group is created, if it does not already exist. All devices are joined to
 this resource group, then devices are removed form the old resource group, then the empty resource group is removed. 'sub resource groups'
@@ -501,7 +501,7 @@ or 'folders' (if looking at it using the file system metaphor) are supported, an
 cache in devJSUtils
 
 
-###deviceAlias
+### deviceAlias
 
 Sets or gets a device alias. If a 'newname' is provided, the method will 
 set the alias name for a specific device ID. Device IDs may only have one alias
@@ -518,7 +518,7 @@ using this routine.
     [description]
 
 
-###getIdByAlias
+### getIdByAlias
 
 Returns a device ID given an alias
 
@@ -530,7 +530,7 @@ Returns a device ID given an alias
     [description]
 
 
-###removeAllAliases
+### removeAllAliases
 
 Use with caution folks. Erases all alias data.
 
@@ -554,7 +554,7 @@ are found, an empty object is returned.
 
     options function to call on each match
 
-####Example
+#### Example
 
 ```
    utils.deviceAlias('RUNNER','internal_1')
@@ -581,7 +581,7 @@ Output
 ```
 
 
-###selectByAlias
+### selectByAlias
 
 This returns the equivalent of using dev$.selectByID(id), if selecting
 one or more devices, but by alias instead.
@@ -594,7 +594,7 @@ result of a call to dev$('id=XYZ') if the parameter passed used an alias which m
 
     A regex or a string
 
-####Example
+#### Example
 
 ```
    utils.deviceAlias('RUNNER','internal_1')
